@@ -12,12 +12,12 @@ export default function Home() {
   const [attempts, setAttempts] = useState(3);
   const [isBlocked, setIsBlocked] = useState(false);
   const [registeredUsers, setRegisteredUsers] = useState([]); 
-  const [userMessages, setUserMessages] = useState([]); // Nueva lista de mensajes
+  const [userMessages, setUserMessages] = useState([]); 
   const [currentMessage, setCurrentMessage] = useState('');
   const [targetEmail, setTargetEmail] = useState('');
   const [customMailBody, setCustomMailBody] = useState('');
 
-  // --- PERSISTENCIA (Cargar datos) ---
+  // Persistencia
   useEffect(() => {
     const savedLogs = localStorage.getItem('bx_database');
     const savedMsgs = localStorage.getItem('bx_messages');
@@ -25,41 +25,40 @@ export default function Home() {
     if (savedMsgs) setUserMessages(JSON.parse(savedMsgs));
   }, []);
 
-  // --- LOGICA DE REGISTRO ---
-  const saveToLogs = (mail, status) => {
-    const newUser = { mail, verified: status, date: new Date().toLocaleTimeString() };
-    const updated = [newUser, ...registeredUsers];
-    setRegisteredUsers(updated);
-    localStorage.setItem('bx_database', JSON.stringify(updated));
-  };
-
-  const sendEmail = async () => {
+  // Lógica de Envío de Correo (Genérica para Registro o Mensaje)
+  const sendVerification = async (targetStep) => {
     const code = Math.floor(1000 + Math.random() * 9000);
     setGeneratedCode(code.toString());
-    setMessage("Connecting to BX-gmail...");
+    setMessage("BX-gmail is authenticating...");
+    
     const res = await fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, type: 'code', code })
     });
-    if (res.ok) { setStep('verify'); setMessage(""); }
-    else { setMessage("Error: Domain might be blocked."); }
+    
+    if (res.ok) {
+      setStep(targetStep);
+      setMessage("Verification code sent!");
+    } else {
+      setMessage("Domain Error: System Protected.");
+    }
   };
 
-  // --- NUEVA LOGICA: ENVIAR MENSAJE AL OWNER ---
+  // Enviar Mensaje al Owner (Solo si está verificado)
   const sendMessageToOwner = () => {
     if (!currentMessage.trim()) return;
     const newMsg = {
       text: currentMessage,
       time: new Date().toLocaleTimeString(),
-      user: email || 'Anonymous'
+      user: email
     };
     const updatedMsgs = [newMsg, ...userMessages];
     setUserMessages(updatedMsgs);
     localStorage.setItem('bx_messages', JSON.stringify(updatedMsgs));
     setCurrentMessage('');
-    setMessage("Message sent to Admin! ✅");
-    setTimeout(() => setMessage(""), 3000);
+    setMessage("Message delivered to Admin ✅");
+    setTimeout(() => setStep('start'), 2000);
   };
 
   const checkOwner = () => {
@@ -78,30 +77,50 @@ export default function Home() {
         
         <h1 style={{ textAlign: 'center', fontSize: '2.8rem', color: '#38bdf8', marginBottom: '30px', fontWeight: '900', textShadow: '0 0 15px rgba(56,189,248,0.3)' }}>BX SYSTEMS</h1>
 
-        {/* --- INTERFAZ DE USUARIO --- */}
+        {/* --- MENU INICIAL --- */}
         {step === 'start' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             <button onClick={() => setStep('email')} style={{ background: '#2563eb', color: 'white', padding: '18px', borderRadius: '15px', border: 'none', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.1rem' }}>REGISTER USER</button>
-            <button onClick={() => setStep('user-msg')} style={{ background: '#1e293b', color: '#38bdf8', padding: '15px', borderRadius: '15px', border: '1px solid #38bdf8', fontWeight: 'bold', cursor: 'pointer' }}>MESSAGE ADMIN</button>
+            <button onClick={() => setStep('msg-auth-email')} style={{ background: '#1e293b', color: '#38bdf8', padding: '15px', borderRadius: '15px', border: '1px solid #38bdf8', fontWeight: 'bold', cursor: 'pointer' }}>MESSAGE ADMIN</button>
             <button onClick={() => setStep('owner')} style={{ color: '#64748b', marginTop: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem' }}>OWNER LOGIN</button>
+          </div>
+        )}
+
+        {/* --- FLUJO DE MENSAJE (AUTENTICACIÓN) --- */}
+        {step === 'msg-auth-email' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <h3 style={{ textAlign: 'center', color: '#38bdf8' }}>Identity Verification</h3>
+            <p style={{ fontSize: '0.8rem', color: '#94a3b8', textAlign: 'center' }}>Enter your email to unlock the message box</p>
+            <input type="email" placeholder="Your Gmail" onChange={(e)=>setEmail(e.target.value)} style={{ padding: '15px', borderRadius: '10px', background: '#020617', border: '1px solid #334155', color: 'white' }} />
+            <button onClick={() => sendVerification('msg-auth-code')} style={{ backgroundColor: '#38bdf8', color: '#0f172a', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 'bold' }}>CONTINUE</button>
+            <button onClick={() => setStep('start')} style={{ color: '#64748b', background: 'none', border: 'none' }}>Cancel</button>
+          </div>
+        )}
+
+        {step === 'msg-auth-code' && (
+          <div style={{ textAlign: 'center' }}>
+            <h3 style={{ color: '#38bdf8', marginBottom: '15px' }}>Check BX-gmail</h3>
+            <input type="text" maxLength="4" placeholder="0000" onChange={(e)=>setInputCode(e.target.value)} style={{ padding: '15px', fontSize: '2rem', width: '150px', textAlign: 'center', borderRadius: '10px', border: '2px solid #38bdf8', background: '#020617', color: 'white' }} />
+            <button onClick={() => {
+              if (inputCode === generatedCode) { setStep('user-msg'); setMessage(""); }
+              else { setMessage("ACCESS DENIED: Invalid Code"); }
+            }} style={{ display: 'block', width: '100%', marginTop: '20px', padding: '15px', backgroundColor: '#10b981', color: 'white', borderRadius: '10px', border: 'none', fontWeight: 'bold' }}>VERIFY IDENTITY</button>
           </div>
         )}
 
         {step === 'user-msg' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <h3 style={{ textAlign: 'center', color: '#38bdf8' }}>Contact Admin</h3>
-            <textarea placeholder="Type your message here..." value={currentMessage} onChange={(e)=>setCurrentMessage(e.target.value)} style={{ width: '100%', height: '120px', padding: '15px', borderRadius: '12px', background: '#020617', color: 'white', border: '1px solid #334155' }}></textarea>
-            <button onClick={sendMessageToOwner} style={{ backgroundColor: '#38bdf8', color: '#0f172a', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 'bold' }}>SEND MESSAGE</button>
-            <button onClick={() => setStep('start')} style={{ color: '#64748b', background: 'none', border: 'none' }}>Back</button>
+            <h3 style={{ textAlign: 'center', color: '#10b981' }}>Secure Channel Active</h3>
+            <textarea placeholder="Write your message to the Admin..." value={currentMessage} onChange={(e)=>setCurrentMessage(e.target.value)} style={{ width: '100%', height: '120px', padding: '15px', borderRadius: '12px', background: '#020617', color: 'white', border: '1px solid #10b981' }}></textarea>
+            <button onClick={sendMessageToOwner} style={{ backgroundColor: '#10b981', color: 'white', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 'bold' }}>SEND MESSAGE</button>
           </div>
         )}
 
-        {/* (Aquí van los pasos de Email y Verify igual que antes...) */}
+        {/* --- FLUJO DE REGISTRO (EXISTENTE) --- */}
         {step === 'email' && (
            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
              <input type="email" placeholder="example@gmail.com" onChange={(e)=>setEmail(e.target.value)} style={{ padding: '15px', borderRadius: '10px', background: '#020617', border: '1px solid #334155', color: 'white' }} />
-             <button onClick={sendEmail} style={{ backgroundColor: '#3b82f6', color: 'white', padding: '15px', borderRadius: '10px', border: 'none', fontWeight: 'bold' }}>GET CODE</button>
-             <button onClick={() => setStep('start')} style={{ color: '#64748b', background: 'none', border: 'none' }}>Back</button>
+             <button onClick={() => sendVerification('verify')} style={{ backgroundColor: '#3b82f6', color: 'white', padding: '15px', borderRadius: '10px', border: 'none', fontWeight: 'bold' }}>GET CODE</button>
            </div>
         )}
 
@@ -109,13 +128,18 @@ export default function Home() {
           <div style={{ textAlign: 'center' }}>
             <input type="text" maxLength="4" onChange={(e)=>setInputCode(e.target.value)} style={{ padding: '15px', fontSize: '2rem', width: '150px', textAlign: 'center', borderRadius: '10px', border: '2px solid #38bdf8', background: '#020617', color: 'white' }} />
             <button onClick={() => {
-              if (inputCode === generatedCode) { saveToLogs(email, true); setMessage("✅ SUCCESS"); }
-              else { saveToLogs(email, false); setMessage("❌ FAILED"); }
+              if (inputCode === generatedCode) { 
+                const newUser = { mail: email, verified: true, date: new Date().toLocaleTimeString() };
+                const updated = [newUser, ...registeredUsers];
+                setRegisteredUsers(updated);
+                localStorage.setItem('bx_database', JSON.stringify(updated));
+                setMessage("✅ SUCCESS"); 
+              } else { setMessage("❌ FAILED"); }
             }} style={{ display: 'block', width: '100%', marginTop: '20px', padding: '15px', backgroundColor: '#10b981', color: 'white', borderRadius: '10px', border: 'none' }}>VERIFY</button>
           </div>
         )}
 
-        {/* --- OWNER PANEL (EL FRAME TRABAJADO) --- */}
+        {/* --- OWNER PANEL --- */}
         {step === 'owner' && (
           <div style={{ textAlign: 'center' }}>
             <h2 style={{ color: '#f43f5e', marginBottom: '20px' }}>Authentication Required</h2>
@@ -126,8 +150,6 @@ export default function Home() {
 
         {step === 'owner-panel' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
-            
-            {/* 1. USER LOGS */}
             <div style={{ background: '#020617', padding: '20px', borderRadius: '15px', border: '1px solid #1e293b' }}>
               <h4 style={{ color: '#38bdf8', borderBottom: '1px solid #1e293b', paddingBottom: '10px' }}>USER ACTIVITY</h4>
               <div style={{ maxHeight: '400px', overflowY: 'auto', marginTop: '10px' }}>
@@ -139,23 +161,19 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 2. INCOMING MESSAGES (NUEVO SECCIÓN) */}
             <div style={{ background: '#020617', padding: '20px', borderRadius: '15px', border: '1px solid #38bdf8' }}>
-              <h4 style={{ color: '#38bdf8', borderBottom: '1px solid #38bdf8', paddingBottom: '10px' }}>USER MESSAGES</h4>
+              <h4 style={{ color: '#38bdf8', borderBottom: '1px solid #38bdf8', paddingBottom: '10px' }}>SECURE MESSAGES</h4>
               <div style={{ maxHeight: '400px', overflowY: 'auto', marginTop: '10px' }}>
-                {userMessages.length === 0 ? <p style={{fontSize:'0.8rem', color:'#475569'}}>No messages yet...</p> : 
-                  userMessages.map((m, i) => (
-                    <div key={i} style={{ padding: '10px', background: '#1e293b', borderRadius: '10px', marginBottom: '10px', border: '1px solid #334155' }}>
-                      <div style={{ fontSize: '0.65rem', color: '#38bdf8' }}>From: {m.user} - {m.time}</div>
-                      <div style={{ fontSize: '0.9rem', marginTop: '5px' }}>{m.text}</div>
-                    </div>
-                  ))
-                }
+                {userMessages.map((m, i) => (
+                  <div key={i} style={{ padding: '10px', background: '#1e293b', borderRadius: '10px', marginBottom: '10px', border: '1px solid #334155' }}>
+                    <div style={{ fontSize: '0.65rem', color: '#38bdf8' }}>From: {m.user}</div>
+                    <div style={{ fontSize: '0.9rem', marginTop: '5px' }}>{m.text}</div>
+                    <div style={{ fontSize: '0.55rem', color: '#64748b', textAlign: 'right' }}>{m.time}</div>
+                  </div>
+                ))}
               </div>
-              <button onClick={() => {localStorage.removeItem('bx_messages'); setUserMessages([]);}} style={{width:'100%', marginTop:'10px', fontSize:'0.7rem', color:'#f43f5e', background:'none', border:'1px solid #f43f5e', borderRadius:'5px'}}>Clear Chats</button>
             </div>
 
-            {/* 3. BX-GMAIL MESSENGER */}
             <div style={{ background: '#020617', padding: '20px', borderRadius: '15px', border: '1px solid #10b981' }}>
               <h4 style={{ color: '#10b981', borderBottom: '1px solid #10b981', paddingBottom: '10px' }}>REPLY VIA GMAIL</h4>
               <input type="email" placeholder="To:" onChange={(e)=>setTargetEmail(e.target.value)} style={{ width: '100%', marginTop: '15px', padding: '10px', borderRadius: '8px', background: '#0f172a', color: 'white', border: '1px solid #334155' }} />
@@ -163,13 +181,12 @@ export default function Home() {
               <button onClick={async () => {
                 const res = await fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: targetEmail, type: 'custom', customMessage: customMailBody }) });
                 if (res.ok) setMessage("Reply Sent! ✅");
-              }} style={{ width: '100%', marginTop: '10px', backgroundColor: '#10b981', color: 'white', padding: '12px', borderRadius: '8px', border: 'none', fontWeight: 'bold' }}>SEND AS BX-GMAIL</button>
+              }} style={{ width: '100%', marginTop: '10px', backgroundColor: '#10b981', color: 'white', padding: '12px', borderRadius: '8px', border: 'none', fontWeight: 'bold' }}>SEND OFFICIAL MAIL</button>
             </div>
-
           </div>
         )}
 
-        <p style={{ textAlign: 'center', marginTop: '20px', color: '#64748b', fontWeight: 'bold' }}>{message}</p>
+        <p style={{ textAlign: 'center', marginTop: '20px', color: '#f43f5e', fontWeight: 'bold', fontSize: '0.9rem' }}>{message}</p>
       </div>
     </div>
   );
