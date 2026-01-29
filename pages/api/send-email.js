@@ -3,8 +3,7 @@ import nodemailer from 'nodemailer';
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Method not allowed');
 
-  const { email } = req.body;
-  const code = Math.floor(1000 + Math.random() * 9000);
+  const { email, type, customMessage, code } = req.body;
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -14,19 +13,23 @@ export default async function handler(req, res) {
     }
   });
 
+  // Elegimos qué enviar: El código o el mensaje del Owner
+  const subject = type === 'custom' ? "New Message from BX System" : "Your BX Verification Code";
+  const content = type === 'custom' ? customMessage : `Your access code is: ${code}`;
+
   try {
     await transporter.sendMail({
-      from: '"BX-gmail" <' + process.env.GMAIL_USER + '>', // Nombre actualizado
+      from: '"BX-gmail" <' + process.env.GMAIL_USER + '>',
       to: email,
-      subject: "Your BX Verification Code",
-      text: `Your access code is: ${code}`,
-      html: `<div style="font-family: Arial; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
-               <h2 style="color: #3b82f6;">BX Verification</h2>
-               <p>Your security code is:</p>
-               <h1 style="letter-spacing: 5px; color: #1d4ed8;">${code}</h1>
+      subject: subject,
+      text: content,
+      html: `<div style="font-family: sans-serif; border: 2px solid #3b82f6; padding: 20px; border-radius: 15px; background-color: #f8fafc;">
+               <h2 style="color: #1e40af;">BX-gmail Official Communication</h2>
+               <p style="font-size: 1.1rem; color: #334155;">${content}</p>
+               <footer style="margin-top: 20px; font-size: 0.8rem; color: #94a3b8;">Sent via BX Secure Systems</footer>
              </div>`
     });
-    res.status(200).json({ success: true, code: code });
+    res.status(200).json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
