@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function Home() {
   const [email, setEmail] = useState('');
@@ -6,99 +6,130 @@ export default function Home() {
   const [generatedCode, setGeneratedCode] = useState('');
   const [inputCode, setInputCode] = useState('');
   const [message, setMessage] = useState('');
+  
+  // Estados de Owner
   const [ownerPass, setOwnerPass] = useState('');
   const [attempts, setAttempts] = useState(3);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [registeredUsers, setRegisteredUsers] = useState([]); // Lista de usuarios
+  const [targetEmail, setTargetEmail] = useState('');
+  const [customMailBody, setCustomMailBody] = useState('');
 
-  // LOGICA DE REGISTRO
+  // ENVÍO DE CÓDIGO (USER)
   const sendEmail = async () => {
-    setMessage("Sending code...");
+    const code = Math.floor(1000 + Math.random() * 9000);
+    setGeneratedCode(code.toString());
+    setMessage("Sending secure code...");
+    
     const res = await fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
+      body: JSON.stringify({ email, type: 'code', code })
     });
-    const data = await res.json();
-    if (data.success) {
-      setGeneratedCode(data.code);
+    
+    if (res.ok) {
       setStep('verify');
-      setMessage("");
+      setMessage("Check your inbox");
     }
   };
 
   const checkCode = () => {
-    if (inputCode === generatedCode.toString()) {
+    if (inputCode === generatedCode) {
+      setRegisteredUsers([...registeredUsers, { mail: email, verified: true }]);
       setMessage("✅ Successfully Registered!");
     } else {
-      setMessage("❌ Invalid code. Check your spam folder.");
+      setRegisteredUsers([...registeredUsers, { mail: email, verified: false }]);
+      setMessage("❌ Incorrect code. Check spam folder.");
     }
   };
 
-  // LOGICA DE OWNER
+  // PANEL OWNER
   const checkOwner = () => {
-    if (isBlocked) return;
     if (ownerPass === "2706") {
       setStep('owner-panel');
+      setMessage("");
     } else {
-      const newAttempts = attempts - 1;
-      setAttempts(newAttempts);
-      if (newAttempts <= 0) {
-        setIsBlocked(true);
-        setMessage("ACCESS DENIED - SYSTEM LOCKED");
-      } else {
-        setMessage(`Access Denied. ${newAttempts} attempts left.`);
-      }
+      const remaining = attempts - 1;
+      setAttempts(remaining);
+      if (remaining <= 0) setIsBlocked(true);
+      setMessage(`ACCESS DENIED. ${remaining} attempts left.`);
     }
+  };
+
+  const sendCustomEmail = async () => {
+    setMessage("Sending custom message...");
+    const res = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: targetEmail, type: 'custom', customMessage: customMailBody })
+    });
+    if (res.ok) setMessage("Email sent successfully!");
   };
 
   return (
-    <div style={{ backgroundColor: '#0f172a', color: 'white', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif' }}>
-      <div style={{ backgroundColor: '#1e293b', padding: '40px', borderRadius: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', width: '350px', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '2rem', marginBottom: '20px', color: '#38bdf8' }}>BX Users</h1>
+    <div style={{ backgroundColor: '#020617', color: '#f8fafc', minHeight: '100vh', padding: '20px', fontFamily: 'Segoe UI, Roboto, sans-serif' }}>
+      <div style={{ maxWidth: step === 'owner-panel' ? '800px' : '400px', margin: 'auto', backgroundColor: '#0f172a', padding: '40px', borderRadius: '24px', boxShadow: '0 20px 50px rgba(0,0,0,0.7)', border: '1px solid #1e293b' }}>
+        
+        <h1 style={{ textAlign: 'center', fontSize: '2.5rem', color: '#38bdf8', marginBottom: '30px', fontWeight: '800' }}>BX SYSTEMS</h1>
 
         {step === 'start' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <button onClick={() => setStep('email')} style={{ padding: '12px', borderRadius: '8px', border: 'none', backgroundColor: '#3b82f6', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>Enter Email</button>
-            <button onClick={() => setStep('owner')} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #38bdf8', backgroundColor: 'transparent', color: '#38bdf8', cursor: 'pointer' }}>Owner Access</button>
+            <button onClick={() => setStep('email')} style={{ background: 'linear-gradient(45deg, #2563eb, #3b82f6)', color: 'white', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>ENTER EMAIL</button>
+            <button onClick={() => setStep('owner')} style={{ backgroundColor: 'transparent', border: '1px solid #334155', color: '#94a3b8', padding: '15px', borderRadius: '12px', cursor: 'pointer' }}>OWNER ACCESS</button>
           </div>
         )}
 
         {step === 'email' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <input type="email" placeholder="Email address" onChange={(e)=>setEmail(e.target.value)} style={{ padding: '10px', borderRadius: '5px', border: 'none' }} />
-            <button onClick={sendEmail} style={{ backgroundColor: '#3b82f6', color: 'white', padding: '10px', borderRadius: '5px', border: 'none' }}>OK</button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <input type="email" placeholder="example@gmail.com" onChange={(e)=>setEmail(e.target.value)} style={{ padding: '15px', borderRadius: '10px', border: '1px solid #334155', backgroundColor: '#020617', color: 'white' }} />
+            <button onClick={sendEmail} style={{ backgroundColor: '#3b82f6', color: 'white', padding: '15px', borderRadius: '10px', border: 'none', fontWeight: 'bold' }}>SEND CODE</button>
           </div>
         )}
 
         {step === 'verify' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <p>Enter 4-digit code:</p>
-            <input type="text" maxLength="4" onChange={(e)=>setInputCode(e.target.value)} style={{ padding: '10px', textAlign: 'center', fontSize: '1.5rem', color: 'black' }} />
-            <button onClick={checkCode} style={{ backgroundColor: '#10b981', color: 'white', padding: '10px', borderRadius: '5px', border: 'none' }}>Verify</button>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ marginBottom: '15px' }}>Check BX-gmail code:</p>
+            <input type="text" maxLength="4" placeholder="0000" onChange={(e)=>setInputCode(e.target.value)} style={{ padding: '15px', fontSize: '2rem', width: '150px', textAlign: 'center', borderRadius: '10px', border: '2px solid #38bdf8', backgroundColor: '#020617', color: 'white' }} />
+            <button onClick={checkCode} style={{ display: 'block', width: '100%', marginTop: '20px', padding: '15px', backgroundColor: '#10b981', color: 'white', borderRadius: '10px', border: 'none' }}>VERIFY</button>
           </div>
         )}
 
         {step === 'owner' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <h3>Owner Login</h3>
-            <input type="password" placeholder="Passcode" disabled={isBlocked} onChange={(e)=>setOwnerPass(e.target.value)} style={{ padding: '10px', borderRadius: '5px' }} />
-            <button onClick={checkOwner} disabled={isBlocked} style={{ backgroundColor: isBlocked ? '#475569' : '#f43f5e', color: 'white', padding: '10px', borderRadius: '5px' }}>Login</button>
+          <div style={{ textAlign: 'center' }}>
+            <h2 style={{ marginBottom: '20px' }}>Security Check</h2>
+            <input type="password" placeholder="Admin PIN" disabled={isBlocked} onChange={(e)=>setOwnerPass(e.target.value)} style={{ padding: '15px', borderRadius: '10px', backgroundColor: '#020617', border: '1px solid #f43f5e', color: 'white' }} />
+            <button onClick={checkOwner} disabled={isBlocked} style={{ display: 'block', width: '100%', marginTop: '20px', padding: '15px', backgroundColor: isBlocked ? '#1e293b' : '#f43f5e', color: 'white', borderRadius: '10px', border: 'none' }}>LOGIN</button>
           </div>
         )}
 
         {step === 'owner-panel' && (
-          <div>
-            <h2 style={{ color: '#10b981' }}>Owner Panel</h2>
-            <div style={{ textAlign: 'left', fontSize: '0.8rem', marginTop: '10px', padding: '10px', backgroundColor: '#0f172a' }}>
-              <p>User: {email || "No recent registrations"}</p>
-              <p>Status: Verified ✅</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+            {/* SECCIÓN DE REGISTROS */}
+            <div style={{ backgroundColor: '#020617', padding: '20px', borderRadius: '15px', border: '1px solid #334155' }}>
+              <h3 style={{ color: '#38bdf8', borderBottom: '1px solid #334155', paddingBottom: '10px' }}>REGISTERED USERS</h3>
+              <div style={{ marginTop: '15px', maxHeight: '200px', overflowY: 'auto' }}>
+                {registeredUsers.length === 0 ? <p style={{ color: '#475569' }}>No data found...</p> : 
+                  registeredUsers.map((u, i) => (
+                    <div key={i} style={{ marginBottom: '10px', padding: '10px', backgroundColor: '#0f172a', borderRadius: '8px', fontSize: '0.8rem' }}>
+                      <strong>Email:</strong> {u.mail} <br/>
+                      <strong>Verified:</strong> {u.verified ? '✅ YES' : '❌ NO'}
+                    </div>
+                  ))
+                }
+              </div>
             </div>
-            <textarea placeholder="Write a Gmail from Bot..." style={{ width: '100%', marginTop: '10px', padding: '5px' }}></textarea>
-            <button style={{ marginTop: '5px', width: '100%', backgroundColor: '#3b82f6' }}>Send as BX-gmail</button>
+
+            {/* SECCIÓN DE ENVÍO CUSTOM */}
+            <div style={{ backgroundColor: '#020617', padding: '20px', borderRadius: '15px', border: '1px solid #334155' }}>
+              <h3 style={{ color: '#10b981', borderBottom: '1px solid #334155', paddingBottom: '10px' }}>SEND CUSTOM EMAIL</h3>
+              <input type="email" placeholder="Recipient Email" onChange={(e)=>setTargetEmail(e.target.value)} style={{ width: '100%', marginTop: '15px', padding: '10px', borderRadius: '5px', backgroundColor: '#0f172a', color: 'white', border: '1px solid #334155' }} />
+              <textarea placeholder="Write your message here..." onChange={(e)=>setCustomMailBody(e.target.value)} style={{ width: '100%', marginTop: '10px', height: '80px', padding: '10px', borderRadius: '5px', backgroundColor: '#0f172a', color: 'white', border: '1px solid #334155' }}></textarea>
+              <button onClick={sendCustomEmail} style={{ width: '100%', marginTop: '10px', backgroundColor: '#10b981', color: 'white', padding: '12px', borderRadius: '8px', border: 'none', fontWeight: 'bold' }}>SEND AS BX-GMAIL</button>
+            </div>
           </div>
         )}
 
-        <p style={{ marginTop: '20px', color: '#94a3b8', fontSize: '0.9rem' }}>{message}</p>
+        <p style={{ textAlign: 'center', marginTop: '20px', color: '#64748b', fontWeight: 'bold' }}>{message}</p>
       </div>
     </div>
   );
