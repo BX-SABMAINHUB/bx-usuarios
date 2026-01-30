@@ -1,6 +1,7 @@
 {
-  "name": "bx-usuarios",
-  "version": "1.0.0",
+  "name": "bxusuarios",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
