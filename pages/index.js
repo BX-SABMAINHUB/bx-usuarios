@@ -25,10 +25,12 @@ export default function Home() {
   const [numSteps, setNumSteps] = useState(1);
   const [stepUrls, setStepUrls] = useState(['', '', '']);
   
-  // --- CUSTOMIZATION ENGINE ---
+  // --- CUSTOMIZATION ENGINE & SHORTENER ---
   const [themeColor, setThemeColor] = useState('#00d2ff');
   const [accentColor, setAccentColor] = useState('#3a7bd5');
   const [glassOpacity, setGlassOpacity] = useState(0.8);
+  const [urlToShorten, setUrlToShorten] = useState('');
+  const [shortenedResult, setShortenedResult] = useState('');
 
   // --- ADMIN & LOGS ---
   const [ownerPass, setOwnerPass] = useState('');
@@ -94,35 +96,56 @@ export default function Home() {
     } else { showNotify("❌ ACCESS DENIED: WRONG PIN"); }
   };
 
-  // --- LOGIC: SMART LINK ENGINE (OPTIMIZADO PARA LINKS CORTOS 10-20 DIGITOS) ---
+  // --- LOGIC: SMART LINK ENGINE (LINKS LARGOS FUNCIONALES - BASE64) ---
   const createSmartLink = () => {
     if (!linkUrl) { showNotify("⚠️ DESTINATION REQUIRED"); return; }
     setLoading(true);
     
     setTimeout(() => {
       const domain = window.location.origin;
-      // Generamos un ID único corto de exactamente 12 caracteres (Alfanumérico)
-      const shortId = Math.random().toString(36).substring(2, 8).toUpperCase() + Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Codificamos la data en Base64 para que el link sea largo pero funcional sin DB externa
+      const linkData = {
+        target: linkUrl,
+        title: linkTitle || 'Premium Content',
+        image: linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png',
+        steps: numSteps,
+        info: stepUrls
+      };
+      const encodedData = btoa(JSON.stringify(linkData));
+      const longUrl = `${domain}/unlock?payload=${encodedData}`;
       
       const newLink = {
-        id: shortId,
+        id: Math.random().toString(36).substring(2, 10),
         title: linkTitle || 'Premium Link',
         image: linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png',
-        short: `${domain}/unlock?id=${shortId}`, // LINK FINAL CORTITO
-        target: linkUrl, 
-        steps: numSteps,
-        info: stepUrls,
+        short: longUrl, 
         clicks: 0,
         date: new Date().toLocaleDateString()
       };
 
       const updated = [newLink, ...myLinks];
       setMyLinks(updated);
-      localStorage.setItem('bx_links', JSON.stringify(updated)); // Guardamos en la "DB" local
+      localStorage.setItem('bx_links', JSON.stringify(updated)); 
       setLinkUrl(''); setLinkTitle(''); setLinkImage('');
       setLoading(false);
-      showNotify("🚀 LINK DEPLOYED: " + shortId);
+      showNotify("🚀 LINK DEPLOYED SUCCESSFULLY");
     }, 1000);
+  };
+
+  // --- LOGIC: INTERNAL SHORTENER ---
+  const handleInternalShorten = async () => {
+    if (!urlToShorten) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(urlToShorten)}`);
+      if (response.ok) {
+        const short = await response.text();
+        setShortenedResult(short);
+        showNotify("✨ URL OPTIMIZED");
+      }
+    } catch (e) { showNotify("❌ SHORTENER ERROR"); }
+    setLoading(false);
   };
 
   const showNotify = (msg) => {
@@ -368,9 +391,9 @@ export default function Home() {
                       <div key={link.id} className="hover-scale" style={{ ...glassEffect, padding: '25px', borderRadius: '25px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
                           <img src={link.image} style={{ width: '80px', height: '80px', borderRadius: '20px', objectFit: 'cover', border: `2px solid ${themeColor}` }} />
-                          <div>
+                          <div style={{maxWidth: '400px', overflow: 'hidden'}}>
                             <h4 style={{ margin: '0 0 5px 0', fontSize: '1.2rem' }}>{link.title}</h4>
-                            <p style={{ margin: 0, color: themeColor, fontSize: '0.9rem', cursor: 'pointer' }} onClick={() => window.open(link.short)}>{link.short}</p>
+                            <p style={{ margin: 0, color: themeColor, fontSize: '0.7rem', cursor: 'pointer', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} onClick={() => window.open(link.short)}>{link.short}</p>
                           </div>
                         </div>
                         <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '30px' }}>
@@ -391,29 +414,55 @@ export default function Home() {
               </div>
             )}
 
-            {/* VIEW: APPEARANCE */}
+            {/* VIEW: APPEARANCE (CUSTOMIZE + SHORTENER) */}
             {dashView === 'appearance' && (
-              <div className="animate-up" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
-                <div style={{ ...glassEffect, padding: '40px', borderRadius: '30px' }}>
-                  <h3>Theme Customization</h3>
-                  <div style={{ marginBottom: '30px' }}>
-                    <label style={{ display: 'block', marginBottom: '15px', fontSize: '0.8rem', color: '#94a3b8' }}>PRIMARY COLOR</label>
-                    <div style={{ display: 'flex', gap: '15px' }}>
-                      {['#00d2ff', '#a855f7', '#10b981', '#f59e0b', '#f43f5e'].map(c => (
-                        <div key={c} onClick={() => setThemeColor(c)} style={{ 
-                          width: '45px', height: '45px', borderRadius: '12px', background: c, cursor: 'pointer',
-                          border: themeColor === c ? '3px solid white' : 'none'
-                        }}></div>
-                      ))}
+              <div className="animate-up" style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                  <div style={{ ...glassEffect, padding: '40px', borderRadius: '30px' }}>
+                    <h3>Theme Customization</h3>
+                    <div style={{ marginBottom: '30px' }}>
+                      <label style={{ display: 'block', marginBottom: '15px', fontSize: '0.8rem', color: '#94a3b8' }}>PRIMARY COLOR</label>
+                      <div style={{ display: 'flex', gap: '15px' }}>
+                        {['#00d2ff', '#a855f7', '#10b981', '#f59e0b', '#f43f5e'].map(c => (
+                          <div key={c} onClick={() => setThemeColor(c)} style={{ 
+                            width: '45px', height: '45px', borderRadius: '12px', background: c, cursor: 'pointer',
+                            border: themeColor === c ? '3px solid white' : 'none'
+                          }}></div>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: '30px' }}>
+                      <label style={{ display: 'block', marginBottom: '15px', fontSize: '0.8rem', color: '#94a3b8' }}>GLASS OPACITY ({Math.round(glassOpacity * 100)}%)</label>
+                      <input type="range" min="0.1" max="1" step="0.1" value={glassOpacity} onChange={(e)=>setGlassOpacity(e.target.value)} style={{ width: '100%', accentColor: themeColor }} />
                     </div>
                   </div>
-                  <div style={{ marginBottom: '30px' }}>
-                    <label style={{ display: 'block', marginBottom: '15px', fontSize: '0.8rem', color: '#94a3b8' }}>GLASS OPACITY ({Math.round(glassOpacity * 100)}%)</label>
-                    <input type="range" min="0.1" max="1" step="0.1" value={glassOpacity} onChange={(e)=>setGlassOpacity(e.target.value)} style={{ width: '100%', accentColor: themeColor }} />
+                  <div style={{ ...glassEffect, borderRadius: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', padding: '20px' }}>
+                    <p style={{ color: '#475569', fontSize: '0.8rem' }}>PREVIEW MODE ACTIVE</p>
                   </div>
                 </div>
-                <div style={{ ...glassEffect, borderRadius: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', padding: '20px' }}>
-                  <p style={{ color: '#475569', fontSize: '0.8rem' }}>PREVIEW MODE ACTIVE</p>
+
+                {/* PROPIETORY SHORTENER ENGINE */}
+                <div style={{ ...glassEffect, padding: '40px', borderRadius: '30px', border: `1px dashed ${themeColor}` }}>
+                  <h3 style={{color: themeColor, marginBottom: '20px'}}>BX-SHORTENER TOOL</h3>
+                  <p style={{color: '#94a3b8', fontSize: '0.9rem', marginBottom: '25px'}}>Acorta tus enlaces largos de BX aquí para compartirlos más fácilmente en redes sociales.</p>
+                  <div style={{ display: 'flex', gap: '15px' }}>
+                    <input 
+                      placeholder="Pega el link largo aquí..." 
+                      value={urlToShorten} 
+                      onChange={(e)=>setUrlToShorten(e.target.value)}
+                      style={{ flex: 1, padding: '18px', background: '#020617', border: '1px solid #1e293b', borderRadius: '12px', color: 'white' }}
+                    />
+                    <button 
+                      onClick={handleInternalShorten}
+                      style={{ padding: '0 40px', background: themeColor, color: 'white', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}
+                    >OK</button>
+                  </div>
+                  {shortenedResult && (
+                    <div className="animate-up" style={{ marginTop: '30px', padding: '20px', background: 'rgba(0,0,0,0.3)', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #1e293b' }}>
+                      <code style={{ color: '#10b981', fontSize: '1.1rem' }}>{shortenedResult}</code>
+                      <button onClick={() => { navigator.clipboard.writeText(shortenedResult); showNotify("📋 COPIED TO CLIPBOARD"); }} style={{ padding: '10px 20px', background: '#334155', border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>COPY</button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
