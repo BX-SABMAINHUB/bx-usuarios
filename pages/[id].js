@@ -7,24 +7,22 @@ export default function Redirect() {
 
   useEffect(() => {
     if (id) {
-      // Esta línea pregunta a tu base de datos dónde debe ir el link
+      // Busca en tu base de datos el link con ese ID
       fetch(`/api/links?id=${id}`)
         .then((res) => res.json())
         .then((data) => {
           if (data && data.url) {
-            // Si encuentra la URL, te redirige automáticamente
+            // ¡Vuela al destino real!
             window.location.href = data.url;
-          } else {
-            console.error("No se encontró la URL en la base de datos");
           }
         })
-        .catch((err) => console.error("Error al conectar con la API:", err));
+        .catch((err) => console.error("Error:", err));
     }
   }, [id]);
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'sans-serif' }}>
-      <p>Redireccionando al destino...</p>
+      <p>Redireccionando...</p>
     </div>
   );
 }
