@@ -4,9 +4,11 @@ import Head from 'next/head';
 
 export default function UnlockPage() {
   const router = useRouter();
-  const { data, t, i } = router.query;
+  const { data, t, i, s1, s2, s3, n } = router.query;
   
   const [info, setInfo] = useState({ url: '', title: '', image: '' });
+  const [steps, setSteps] = useState([]);
+  const [currentStep, setCurrentStep] = useState(0);
   const [timer, setTimer] = useState(30); 
   const [isTaskDone, setIsTaskDone] = useState(false);
   const [canUnlock, setCanUnlock] = useState(false);
@@ -18,17 +20,34 @@ export default function UnlockPage() {
         title: atob(t),  
         image: atob(i)   
       });
+
+      // Lógica de "Value Steps" y "Info Steps"
+      const numSteps = parseInt(n) || 1;
+      const stepLinks = [s1, s2, s3].slice(0, numSteps).map(link => link ? atob(link) : "https://www.opera.com");
+      setSteps(stepLinks);
     }
-  }, [data, t, i]);
+  }, [data, t, i, s1, s2, s3, n]);
 
   useEffect(() => {
     if (isTaskDone && timer > 0) {
       const countdown = setInterval(() => setTimer((t) => t - 1), 1000);
       return () => clearInterval(countdown);
     } else if (isTaskDone && timer === 0) {
-      setCanUnlock(true);
+      if (currentStep < steps.length - 1) {
+        // Si hay más pasos, reiniciar para el siguiente
+        setCurrentStep(prev => prev + 1);
+        setIsTaskDone(false);
+        setTimer(30);
+      } else {
+        setCanUnlock(true);
+      }
     }
-  }, [isTaskDone, timer]);
+  }, [isTaskDone, timer, currentStep, steps.length]);
+
+  const handleTaskClick = () => {
+    window.open(steps[currentStep], "_blank");
+    setIsTaskDone(true);
+  };
 
   const handleUnlock = () => {
     if (info.url) window.location.href = info.url;
@@ -47,11 +66,12 @@ export default function UnlockPage() {
         <div style={styles.tag}>WAIT FOR THE TIMER TO UNLOCK</div>
         
         <div style={styles.taskContainer}>
-          <div style={styles.taskButton} onClick={() => { window.open("https://www.opera.com", "_blank"); setIsTaskDone(true); }}>
+          {/* Renderizado dinámico del paso actual */}
+          <div style={styles.taskButton} onClick={handleTaskClick}>
             <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
               <span>🚀</span>
               <div style={{textAlign:'left'}}>
-                <span style={{display:'block', fontSize:'9px', color:'#aaa'}}>STEP 1</span>
+                <span style={{display:'block', fontSize:'9px', color:'#aaa'}}>STEP {currentStep + 1} OF {steps.length}</span>
                 <span style={{fontWeight:'bold'}}>Click to start</span>
               </div>
             </div>
@@ -62,7 +82,9 @@ export default function UnlockPage() {
             {isTaskDone && !canUnlock ? (
               <p style={styles.timerText}>Wait {timer} seconds...</p>
             ) : (
-              <p style={styles.progressText}>{canUnlock ? 'Ready!' : 'Complete the step above'}</p>
+              <p style={styles.progressText}>
+                {canUnlock ? 'Ready!' : isTaskDone ? 'Next step loading...' : `Complete step ${currentStep + 1} above`}
+              </p>
             )}
             <div style={styles.progressBarBg}>
               <div style={{...styles.progressBarFill, width: canUnlock ? '100%' : isTaskDone ? `${((30-timer)/30)*100}%` : '0%'}}></div>
