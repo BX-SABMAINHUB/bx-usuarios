@@ -43,6 +43,9 @@ export default function Home() {
       const data = localStorage.getItem(key);
       if (data) setter(JSON.parse(data));
     });
+    // SISTEMA DE MEMORIA: Recuperar sesión activa
+    const activeSession = localStorage.getItem('bx_active_session');
+    if (activeSession) { setCurrentUser(JSON.parse(activeSession)); setStep('user-dashboard'); }
   }, []);
 
   // --- LOGIC: GMAIL SYSTEM ---
@@ -81,6 +84,7 @@ export default function Home() {
     const user = userAccounts.find(u => u.email === email && u.password === password);
     if (user) {
       setCurrentUser(user);
+      localStorage.setItem('bx_active_session', JSON.stringify(user)); // GUARDAR MEMORIA
       setStep('user-dashboard');
       showNotify(`WELCOME BACK, ${email.split('@')[0].toUpperCase()}`);
     } else { showNotify("❌ ACCESS DENIED: WRONG PIN"); }
@@ -264,7 +268,7 @@ export default function Home() {
             <div style={{ padding: '20px', background: 'rgba(0,0,0,0.2)', borderRadius: '20px', marginTop: '20px' }}>
               <p style={{ fontSize: '0.7rem', color: '#475569', marginBottom: '5px' }}>LOGGED IN AS</p>
               <p style={{ fontSize: '0.85rem', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser?.email}</p>
-              <button onClick={() => setStep('start')} style={{ width: '100%', marginTop: '20px', padding: '12px', borderRadius: '10px', border: 'none', background: '#f43f5e', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>LOGOUT</button>
+              <button onClick={() => { localStorage.removeItem('bx_active_session'); setStep('start'); }} style={{ width: '100%', marginTop: '20px', padding: '12px', borderRadius: '10px', border: 'none', background: '#f43f5e', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>LOGOUT</button>
             </div>
           </div>
 
