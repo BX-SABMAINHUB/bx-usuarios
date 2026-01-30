@@ -31,6 +31,7 @@ export default function Home() {
   const [dashView, setDashView] = useState('analytics');
   const [linkUrl, setLinkUrl] = useState('');
   const [linkTitle, setLinkTitle] = useState('');
+  const [linkImage, setLinkImage] = useState(''); // NUEVO: Estado para la imagen
   const [myLinks, setMyLinks] = useState([]);
   
   const [themeColor, setThemeColor] = useState('#8b5cf6');
@@ -114,32 +115,50 @@ export default function Home() {
     }
   };
 
-  // --- MODIFIED LINK GENERATOR (REAL) ---
-  const createSmartLink = () => {
-    if (!linkUrl) return;
-    const id = Math.random().toString(36).substr(2, 6);
+  // --- MODIFIED LINK GENERATOR (SAVES TO MONGODB) ---
+  const createSmartLink = async () => {
+    if (!linkUrl) {
+        setMessage("❌ Please enter a Destination URL");
+        return;
+    }
     
-    // Obtiene el dominio real donde está alojada la web automáticamente
+    const id = Math.random().toString(36).substr(2, 6);
     const domain = window.location.origin;
 
     const newLink = {
       id: id,
-      title: linkTitle || 'Untitled Link',
-      original: linkUrl,
-      short: `${domain}/${id}`, // Enlace REAL que apunta a pages/[id].js
+      title: linkTitle || 'Alexgaming', // Título personalizado
+      image: linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png', // Imagen personalizada
+      url: linkUrl, // El destino real
+      short: `${domain}/${id}`, 
       clicks: 0,
-      impressions: 0,
-      ctr: '0%',
       date: new Date().toLocaleDateString(),
-      active: true
     };
-    
-    const updated = [newLink, ...myLinks];
-    setMyLinks(updated);
-    localStorage.setItem('bx_links', JSON.stringify(updated));
-    setLinkUrl('');
-    setLinkTitle('');
-    setMessage("Link Created Successfully!");
+
+    setMessage("Saving to Database...");
+
+    // ENVIAR A MONGODB VIA API
+    try {
+        const res = await fetch('/api/links', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newLink)
+        });
+
+        if (res.ok) {
+            const updated = [newLink, ...myLinks];
+            setMyLinks(updated);
+            localStorage.setItem('bx_links', JSON.stringify(updated));
+            setLinkUrl('');
+            setLinkTitle('');
+            setLinkImage('');
+            setMessage("Link Created & Saved to Cloud! ✅");
+        } else {
+            setMessage("❌ Database Error. Try again.");
+        }
+    } catch (error) {
+        setMessage("❌ Connection Failed.");
+    }
   };
 
   const deleteLink = (id) => {
@@ -148,9 +167,7 @@ export default function Home() {
     localStorage.setItem('bx_links', JSON.stringify(updated));
   };
 
-  // --- MODIFIED CLICK HANDLER (REAL) ---
   const handleLinkClick = (shortUrl) => {
-    // Abre directamente el enlace generado para pasar por la página tipo Lootlabs
     window.open(shortUrl, '_blank');
   };
 
@@ -226,6 +243,7 @@ export default function Home() {
           </div>
         )}
 
+        {/* --- REGISTRATION & LOGIN BLOCKS (UNTOUCHED) --- */}
         {step === 'reg-email' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             <h3 style={{ textAlign: 'center', color: '#3b82f6' }}>Create Account</h3>
@@ -360,13 +378,18 @@ export default function Home() {
                 <div>
                   <h2 style={{ marginBottom: '20px', fontWeight: '300' }}>Link Management</h2>
                   
+                  {/* --- MODIFIED FRAME (NOW WITH TITLE & IMAGE) --- */}
                   <div style={{ background: '#1e293b', padding: '25px', borderRadius: '20px', border: '1px solid #334155', marginBottom: '30px' }}>
                     <h4 style={{ color: 'white', marginTop: 0 }}>Create New Smart Link</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 150px', gap: '15px' }}>
-                      <input type="text" placeholder="Title (e.g. My File)" value={linkTitle} onChange={(e)=>setLinkTitle(e.target.value)} style={{ padding: '15px', borderRadius: '10px', background: '#020617', border: '1px solid #334155', color: 'white' }} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                      <input type="text" placeholder="Custom Title (e.g. Alexgaming)" value={linkTitle} onChange={(e)=>setLinkTitle(e.target.value)} style={{ padding: '15px', borderRadius: '10px', background: '#020617', border: '1px solid #334155', color: 'white' }} />
+                      <input type="text" placeholder="Custom Image URL (https://...)" value={linkImage} onChange={(e)=>setLinkImage(e.target.value)} style={{ padding: '15px', borderRadius: '10px', background: '#020617', border: '1px solid #334155', color: 'white' }} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px', gap: '15px' }}>
                       <input type="text" placeholder="Destination URL (https://...)" value={linkUrl} onChange={(e)=>setLinkUrl(e.target.value)} style={{ padding: '15px', borderRadius: '10px', background: '#020617', border: '1px solid #334155', color: 'white' }} />
                       <button onClick={createSmartLink} style={{ background: themeColor, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>CREATE</button>
                     </div>
+                    <p style={{fontSize: '0.7rem', color: '#64748b', marginTop: '10px'}}>* Leave Title and Image blank to use defaults.</p>
                   </div>
 
                   <div>
@@ -375,14 +398,12 @@ export default function Home() {
                       myLinks.map((l, i) => (
                         <div key={i} style={{ background: '#1e293b', padding: '20px', borderRadius: '15px', marginBottom: '15px', border: '1px solid #334155', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                            <div style={{ width: '50px', height: '50px', background: '#0f172a', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>🔗</div>
+                            <img src={l.image || "https://i.ibb.co/vzPRm9M/alexgaming.png"} style={{ width: '50px', height: '50px', borderRadius: '10px', objectFit: 'cover' }} />
                             <div>
                               <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'white' }}>{l.title}</div>
-                              {/* ENLACE REAL CORREGIDO */}
                               <a href="#" onClick={(e)=>{ e.preventDefault(); handleLinkClick(l.short); }} style={{ color: themeColor, textDecoration: 'none', fontSize: '0.9rem', display: 'block', marginTop: '5px' }}>
                                 {l.short} <span style={{fontSize: '0.7rem', color: '#64748b', marginLeft: '10px'}}>⬅ TEST REAL LINK</span>
                               </a>
-                              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '5px' }}>Target: {l.original.substring(0, 40)}...</div>
                             </div>
                           </div>
                           
@@ -390,10 +411,6 @@ export default function Home() {
                             <div style={{ textAlign: 'right' }}>
                               <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{l.clicks}</div>
                               <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>CLICKS</div>
-                            </div>
-                            <div style={{ textAlign: 'right', marginRight: '20px' }}>
-                              <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{l.date}</div>
-                              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>CREATED</div>
                             </div>
                             <button onClick={()=>deleteLink(l.id)} style={{ background: '#f43f5e', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '8px', cursor: 'pointer' }}>DELETE</button>
                           </div>
@@ -404,6 +421,7 @@ export default function Home() {
                 </div>
               )}
 
+              {/* --- REST OF DASHVIEW BLOCKS (UNTOUCHED) --- */}
               {dashView === 'appearance' && (
                 <div>
                    <h2 style={{ marginBottom: '20px', fontWeight: '300' }}>Page Design</h2>
@@ -493,6 +511,7 @@ export default function Home() {
           </div>
         )}
 
+        {/* --- OWNER PANELS (UNTOUCHED) --- */}
         {step === 'owner' && (
           <div style={{ textAlign: 'center' }}>
             <h2 style={{ color: '#f43f5e', marginBottom: '25px' }}>Admin Authorization</h2>
