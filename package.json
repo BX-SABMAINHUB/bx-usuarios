@@ -10,6 +10,7 @@
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "nodemailer": "latest"
+    "nodemailer": "latest",
+    "mongodb": "^6.3.0"
   }
 }
