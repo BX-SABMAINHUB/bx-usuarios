@@ -1,142 +1,151 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 
-export default function Checkpoint() {
+export default function CheckpointPage() {
   const router = useRouter();
   const { id } = router.query;
   const [targetUrl, setTargetUrl] = useState(null);
-  const [timer, setTimer] = useState(5); // 5 segundos de espera
+  const [timer, setTimer] = useState(30); // 30 segundos de espera
+  const [isTaskDone, setIsTaskDone] = useState(false);
   const [canUnlock, setCanUnlock] = useState(false);
 
   useEffect(() => {
     if (id) {
-      // 1. Buscamos el link en tu MongoDB
+      // Buscamos el link real en tu base de datos
       fetch(`/api/links?id=${id}`)
-        .then(res => res.json())
-        .then(data => {
+        .then((res) => res.json())
+        .then((data) => {
           if (data && data.url) setTargetUrl(data.url);
         })
-        .catch(err => console.error("Error:", err));
+        .catch((err) => console.error("Error loading link:", err));
     }
   }, [id]);
 
   useEffect(() => {
-    // 2. Contador para activar el botón
-    if (timer > 0) {
-      const countdown = setInterval(() => setTimer(timer - 1), 1000);
+    // El contador solo empieza si el usuario ya hizo clic en la tarea de Opera
+    if (isTaskDone && timer > 0) {
+      const countdown = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
       return () => clearInterval(countdown);
-    } else {
+    } else if (isTaskDone && timer === 0) {
       setCanUnlock(true);
     }
-  }, [timer]);
+  }, [isTaskDone, timer]);
 
-  const handleRedirect = () => {
-    if (targetUrl) window.location.href = targetUrl;
+  const handleTaskClick = () => {
+    // Abrir Opera en una pestaña nueva
+    window.open("https://www.opera.com/es", "_blank");
+    // Empezar el contador de 30 segundos
+    setIsTaskDone(true);
+  };
+
+  const handleUnlock = () => {
+    if (targetUrl) {
+      window.location.href = targetUrl;
+    }
   };
 
   return (
-    <div style={styles.body}>
-      <div style={styles.stars}></div>
+    <div style={styles.container}>
       <div style={styles.card}>
-        <img src="https://i.ibb.co/vzPRm9M/alexgaming.png" style={styles.avatar} alt="Avatar" />
+        <img src="https://i.ibb.co/vzPRm9M/alexgaming.png" style={styles.avatar} alt="Logo" />
         <h1 style={styles.title}>Alexgaming</h1>
-        <p style={styles.checkpointText}>CHECKPOINT 1</p>
+        <h2 style={styles.subtitle}>CHECKPOINT 1</h2>
         
-        <div style={styles.taskBox}>
-          <p style={styles.instruction}>Complete the actions to unlock the link</p>
-          <div style={styles.actionRow}>
-            <span style={styles.actionIcon}>📁</span>
-            <span style={styles.actionName}>DESCARGA EL MEJOR NAVEGADOR</span>
-            <span style={styles.check}>✓</span>
+        <div style={styles.taskCard}>
+          <p style={styles.taskTitle}>Complete the actions to unlock the link</p>
+          
+          <button style={styles.actionButton} onClick={handleTaskClick}>
+            DOWNLOAD THE BEST GAMING BROWSER
+          </button>
+
+          <div style={styles.statusBox}>
+            <p style={styles.progressText}>
+              UNLOCK PROGRESS: {canUnlock ? '1/1' : isTaskDone ? 'WAITING...' : '0/1'}
+            </p>
+            {isTaskDone && !canUnlock && (
+              <p style={styles.timerText}>Please wait {timer} seconds...</p>
+            )}
           </div>
           
-          <p style={styles.progress}>UNLOCK PROGRESS: {canUnlock ? '1/1' : '0/1'}</p>
-          
           <button 
-            onClick={handleRedirect}
+            style={canUnlock ? styles.unlockActive : styles.unlockDisabled} 
             disabled={!canUnlock}
-            style={canUnlock ? styles.btnActive : styles.btnDisabled}
+            onClick={handleUnlock}
           >
-            {canUnlock ? 'UNLOCK CONTENT' : `WAIT ${timer}s...`}
+            {canUnlock ? 'UNLOCK CONTENT' : '🔒 UNLOCK CONTENT'}
           </button>
         </div>
         
-        <p style={styles.footer}>Powered by Bx-Usuarios • We Monetize</p>
+        <p style={styles.footer}>
+          Support Content Creators: The content is brought to you for FREE thanks to the ads on this page.
+          <br/>Powered by Bx-Usuarios
+        </p>
       </div>
     </div>
   );
 }
 
 const styles = {
-  body: {
-    backgroundColor: '#0a0b10',
-    height: '100vh',
+  container: {
+    backgroundColor: '#0b0e14',
+    minHeight: '100vh',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     fontFamily: '"Inter", sans-serif',
-    overflow: 'hidden',
-    position: 'relative'
+    color: 'white',
+    padding: '20px'
   },
-  stars: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    backgroundImage: 'radial-gradient(white, rgba(255,255,255,0.2) 2px, transparent 40px)',
-    backgroundSize: '100px 100px',
-    opacity: 0.1
-  },
-  card: {
-    backgroundColor: 'rgba(20, 22, 31, 0.95)',
-    padding: '30px',
-    borderRadius: '20px',
-    border: '1px solid #2d2f3a',
-    textAlign: 'center',
-    width: '90%',
-    maxWidth: '400px',
-    zIndex: 10,
-    boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
-  },
-  avatar: { width: '80px', borderRadius: '15px', marginBottom: '15px' },
-  title: { color: 'white', fontSize: '22px', margin: '0' },
-  checkpointText: { color: '#888', fontSize: '12px', marginBottom: '20px' },
-  taskBox: {
+  card: { width: '100%', maxWidth: '400px', textAlign: 'center' },
+  avatar: { width: '70px', borderRadius: '12px', marginBottom: '15px' },
+  title: { fontSize: '24px', fontWeight: 'bold', margin: '0' },
+  subtitle: { fontSize: '12px', color: '#888', marginBottom: '25px', letterSpacing: '1px' },
+  taskCard: {
     backgroundColor: '#161822',
-    padding: '20px',
-    borderRadius: '15px',
-    border: '1px solid #2d2f3a'
+    borderRadius: '16px',
+    padding: '24px',
+    border: '1px solid #2d2f3a',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.4)'
   },
-  instruction: { color: '#ccc', fontSize: '13px', marginBottom: '15px' },
-  actionRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '10px',
-    border: '1px solid #333',
-    borderRadius: '8px',
-    marginBottom: '15px'
-  },
-  actionName: { fontSize: '11px', fontWeight: 'bold' },
-  progress: { fontSize: '10px', color: '#666', marginBottom: '15px' },
-  btnDisabled: {
+  taskTitle: { fontSize: '14px', color: '#ccc', marginBottom: '20px' },
+  actionButton: {
     width: '100%',
-    padding: '12px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: '#333',
-    color: '#666',
-    fontWeight: 'bold'
-  },
-  btnActive: {
-    width: '100%',
-    padding: '12px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: '#ffffff',
-    color: '#000',
+    backgroundColor: 'transparent',
+    border: '1px solid #444',
+    color: 'white',
+    padding: '14px',
+    borderRadius: '10px',
+    fontSize: '11px',
     fontWeight: 'bold',
     cursor: 'pointer',
-    boxShadow: '0 0 15px rgba(255,255,255,0.3)'
+    transition: '0.3s'
   },
-  footer: { color: '#444', fontSize: '10px', marginTop: '20px' }
+  statusBox: { margin: '20px 0' },
+  progressText: { fontSize: '11px', color: '#666', margin: '0' },
+  timerText: { fontSize: '13px', color: '#fff', marginTop: '5px', fontWeight: 'bold' },
+  unlockDisabled: {
+    width: '100%',
+    backgroundColor: '#333',
+    color: '#666',
+    padding: '14px',
+    borderRadius: '10px',
+    border: 'none',
+    fontWeight: 'bold',
+    fontSize: '14px'
+  },
+  unlockActive: {
+    width: '100%',
+    backgroundColor: '#ffffff',
+    color: '#000',
+    padding: '14px',
+    borderRadius: '10px',
+    border: 'none',
+    fontWeight: 'bold',
+    fontSize: '14px',
+    cursor: 'pointer',
+    boxShadow: '0 0 20px rgba(255,255,255,0.2)'
+  },
+  footer: { fontSize: '10px', color: '#444', marginTop: '25px', lineHeight: '1.5' }
 };
