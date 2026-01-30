@@ -86,19 +86,21 @@ export default function Home() {
     } else { showNotify("❌ ACCESS DENIED: WRONG PIN"); }
   };
 
-  // --- LOGIC: SMART LINK ENGINE ---
+  // --- LOGIC: SMART LINK ENGINE (MODIFICADO A INGLÉS) ---
   const createSmartLink = () => {
     if (!linkUrl) { showNotify("⚠️ DESTINATION REQUIRED"); return; }
     setLoading(true);
     
     setTimeout(() => {
       const domain = window.location.origin;
+      // Aquí cambiamos los textos por defecto a Inglés para que coincidan con la imagen
       const data = {
         u: btoa(linkUrl),
-        t: btoa(linkTitle || 'Exclusive Content'),
+        t: btoa(linkTitle || 'Final Validation'), // Cambiado de Prueba Final
         i: btoa(linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png')
       };
 
+      // Estos parámetros se pasan a la página de /unlock
       const shortUrl = `${domain}/unlock?data=${data.u}&t=${data.t}&i=${data.i}`;
       const newLink = {
         id: Math.random().toString(36).substr(2, 6),
