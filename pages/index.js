@@ -49,9 +49,9 @@ export default function Home() {
         const decoded = JSON.parse(atob(payload));
         setUnlockData(decoded);
         setIsUnlockPage(true);
-        addLog("External Payload Detected - Accessing Gateway");
+        addLog("EXTERNAL_PAYLOAD_DETECTED");
       } catch (e) {
-        showNotify("❌ DATA ENCRYPTION ERROR");
+        showNotify("❌ DATA_ENCRYPTION_ERROR");
       }
     }
 
@@ -87,15 +87,14 @@ export default function Home() {
 
   // --- LOGIC: SECURITY DISPATCHER ---
   const sendVerification = async (target) => {
-    if (!email.includes('@')) { showNotify("❌ INVALID IDENTITY"); return; }
+    if (!email.includes('@')) { showNotify("❌ INVALID_IDENTITY"); return; }
     setLoading(true);
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     setGeneratedCode(code);
     
-    // Simulating Secure API Handshake
     setTimeout(() => {
       setStep(target);
-      addLog(`Security code sent to ${email}`);
+      addLog(`SECURITY_CODE_DISPATCHED_TO_${email.toUpperCase()}`);
       showNotify("📡 SYSTEM: CODE IS " + code);
       setLoading(false);
     }, 1200);
@@ -103,7 +102,7 @@ export default function Home() {
 
   // --- LOGIC: ACCOUNT FINALIZATION ---
   const finalizeRegistration = () => {
-    if (password.length < 4) { showNotify("❌ PIN INSECURE"); return; }
+    if (password.length < 4) { showNotify("❌ PIN_INSECURE"); return; }
     const account = { 
       email, 
       password, 
@@ -113,8 +112,8 @@ export default function Home() {
     const updated = [...userAccounts, account];
     setUserAccounts(updated);
     localStorage.setItem('bx_accounts', JSON.stringify(updated));
-    addLog(`New account registered: ${email}`);
-    showNotify("🎉 DATABASE SYNCHRONIZED");
+    addLog(`NEW_IDENTITY_REGISTERED: ${email}`);
+    showNotify("🎉 DATABASE_SYNCHRONIZED");
     setStep('login');
   };
 
@@ -123,18 +122,18 @@ export default function Home() {
     if (found) {
       setCurrentUser(found);
       localStorage.setItem('bx_active_session', JSON.stringify(found)); 
-      addLog(`User session started: ${email}`);
+      addLog(`SESSION_ESTABLISHED: ${email}`);
       setStep('user-dashboard');
-      showNotify(`ACCESS GRANTED: ${email.split('@')[0]}`);
+      showNotify(`ACCESS_GRANTED: ${email.split('@')[0].toUpperCase()}`);
     } else { 
-      addLog(`Failed login attempt: ${email}`);
-      showNotify("❌ ACCESS DENIED"); 
+      addLog(`UNAUTHORIZED_ACCESS_ATTEMPT: ${email}`);
+      showNotify("❌ ACCESS_DENIED"); 
     }
   };
 
   // --- LOGIC: SMART LINK ARCHITECT (FIXED) ---
   const deploySmartLink = () => {
-    if (!linkUrl.startsWith('http')) { showNotify("⚠️ INVALID TARGET URL"); return; }
+    if (!linkUrl.startsWith('http')) { showNotify("⚠️ INVALID_TARGET_URL"); return; }
     setLoading(true);
     
     setTimeout(() => {
@@ -163,27 +162,27 @@ export default function Home() {
       setMyLinks(updatedLinks);
       localStorage.setItem('bx_links', JSON.stringify(updatedLinks));
       
-      addLog(`Deployed link: ${entry.id}`);
+      addLog(`ASSET_DEPLOYED: ${entry.id}`);
       setLinkUrl(''); setLinkTitle('');
       setLoading(false);
-      showNotify("🚀 ASSET BROADCASTED");
+      showNotify("🚀 ASSET_BROADCASTED");
     }, 1500);
   };
 
-  // --- LOGIC: BX GLOBAL SHORTENER (ENGLISH) ---
+  // --- LOGIC: BX GLOBAL SHORTENER ---
   const executeShorten = async () => {
     if (!urlToShorten) return;
     setLoading(true);
-    addLog("Requesting external URL compression");
+    addLog("COMPRESSING_EXTERNAL_URL");
     try {
       const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(urlToShorten)}`);
       if (response.ok) {
         const result = await response.text();
         setShortenedResult(result);
-        showNotify("✨ URL OPTIMIZED");
+        showNotify("✨ URL_OPTIMIZED");
       }
     } catch (err) {
-      showNotify("❌ EXTERNAL API TIMEOUT");
+      showNotify("❌ API_TIMEOUT");
     }
     setLoading(false);
   };
@@ -193,12 +192,21 @@ export default function Home() {
     setTimeout(() => setMessage(''), 3000);
   };
 
+  // --- LOGIC: SECURE UNLOCK HANDLER (FIXED FOR STEPS) ---
+  const handleStepUnlock = (index, url) => {
+    window.open(url, '_blank');
+    if (currentUnlockStep === index) {
+      setCurrentUnlockStep(index + 1);
+      addLog(`SECURITY_LAYER_${index + 1}_BYPASSED`);
+    }
+  };
+
   // --- UI THEME DEFINITION ---
   const containerStyle = {
     backgroundColor: '#020617',
     color: '#f8fafc',
     minHeight: '100vh',
-    fontFamily: "'Inter', system-ui, sans-serif",
+    fontFamily: "'Inter', sans-serif",
     backgroundImage: 'radial-gradient(circle at 50% 0%, #1e293b 0%, #020617 70%)'
   };
 
@@ -216,18 +224,26 @@ export default function Home() {
         <div className="fade-up" style={{ ...glassPanel, padding: '50px', borderRadius: '40px', width: '100%', maxWidth: '480px', textAlign: 'center' }}>
           <div style={{ position: 'relative', display: 'inline-block', marginBottom: '25px' }}>
             <img src={unlockData.image} style={{ width: '120px', height: '120px', borderRadius: '35px', objectFit: 'cover', border: `4px solid ${themeColor}` }} />
-            <div style={{ position: 'absolute', top: -10, right: -10, background: themeColor, padding: '5px 12px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.7rem' }}>SECURE</div>
+            <div style={{ position: 'absolute', top: -10, right: -10, background: themeColor, padding: '5px 12px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.7rem', color: 'black' }}>SECURE</div>
           </div>
           <h2 style={{ fontSize: '2.2rem', fontWeight: '900', marginBottom: '10px' }}>{unlockData.title}</h2>
-          <p style={{ color: '#94a3b8', marginBottom: '40px' }}>Complete the security layers to access the destination</p>
+          <p style={{ color: '#94a3b8', marginBottom: '40px' }}>Complete security layers to synchronize data</p>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             {unlockData.steps.map((url, i) => (
-              <button key={i} onClick={() => { window.open(url, '_blank'); if(currentUnlockStep === i) setCurrentUnlockStep(i+1); }} style={{ 
-                padding: '20px', borderRadius: '18px', border: '1px solid #334155', 
-                background: currentUnlockStep > i ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.03)',
-                color: currentUnlockStep > i ? '#10b981' : 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem'
-              }}>
+              <button 
+                key={i} 
+                onClick={() => handleStepUnlock(i, url)} 
+                disabled={currentUnlockStep < i}
+                style={{ 
+                  padding: '20px', borderRadius: '18px', border: '1px solid #334155', 
+                  background: currentUnlockStep > i ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.03)',
+                  color: currentUnlockStep > i ? '#10b981' : 'white', 
+                  cursor: currentUnlockStep === i ? 'pointer' : 'default',
+                  fontWeight: 'bold', fontSize: '1rem',
+                  opacity: currentUnlockStep < i ? 0.4 : 1,
+                  transition: '0.3s'
+                }}>
                 {currentUnlockStep > i ? `✅ LAYER ${i+1} VERIFIED` : `🔓 BYPASS LAYER ${i+1}`}
               </button>
             ))}
@@ -238,11 +254,12 @@ export default function Home() {
               style={{ 
                 padding: '22px', borderRadius: '18px', border: 'none', 
                 background: currentUnlockStep >= unlockData.steps.length ? themeColor : '#1e293b',
-                color: 'white', fontWeight: '900', fontSize: '1.2rem', marginTop: '15px', cursor: 'pointer',
+                color: currentUnlockStep >= unlockData.steps.length ? 'black' : '#475569', 
+                fontWeight: '900', fontSize: '1.2rem', marginTop: '15px', cursor: 'pointer',
                 boxShadow: currentUnlockStep >= unlockData.steps.length ? `0 0 30px ${themeColor}` : 'none',
                 transition: '0.4s'
               }}>
-              {currentUnlockStep >= unlockData.steps.length ? 'CONTINUE TO TARGET' : 'LOCKED BY SYSTEM'}
+              {currentUnlockStep >= unlockData.steps.length ? 'CONTINUE TO TARGET' : 'NODE_LOCKED'}
             </button>
           </div>
           <p style={{ marginTop: '40px', fontSize: '0.75rem', color: '#475569', letterSpacing: '2px' }}>ENCRYPTED BY BX-SYSTEMS CLOUD</p>
@@ -258,7 +275,7 @@ export default function Home() {
         .fade-up { animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .bx-input-field { background: #0f172a; border: 1px solid #1e293b; color: white; padding: 18px; border-radius: 14px; width: 100%; transition: 0.3s; }
         .bx-input-field:focus { border-color: ${themeColor}; outline: none; box-shadow: 0 0 15px rgba(0, 210, 255, 0.1); }
-        .sidebar-btn { padding: 16px 24px; border-radius: 14px; border: none; background: transparent; color: #64748b; cursor: pointer; text-align: left; font-weight: 600; display: flex; alignItems: center; gap: 12px; }
+        .sidebar-btn { padding: 16px 24px; border-radius: 14px; border: none; background: transparent; color: #64748b; cursor: pointer; text-align: left; font-weight: 600; display: flex; alignItems: center; gap: 12px; width: 100%; }
         .sidebar-btn.active { background: rgba(255,255,255,0.05); color: ${themeColor}; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
@@ -270,10 +287,10 @@ export default function Home() {
           <div className="fade-up" style={{ ...glassPanel, padding: '60px', borderRadius: '50px', width: '90%', maxWidth: '500px', textAlign: 'center' }}>
             <div style={{ width: '80px', height: '80px', background: themeColor, borderRadius: '24px', margin: '0 auto 30px', boxShadow: `0 0 40px ${themeColor}66` }}></div>
             <h1 style={{ fontSize: '3.5rem', fontWeight: '900', letterSpacing: '-3px', margin: 0 }}>BX-SYSTEMS</h1>
-            <p style={{ color: '#64748b', fontSize: '1.1rem', marginBottom: '50px' }}>Next-Gen Asset Security & Distribution</p>
+            <p style={{ color: '#64748b', fontSize: '1.1rem', marginBottom: '50px' }}>Global Asset Security & Distribution</p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <button onClick={() => setStep('reg-email')} style={{ padding: '22px', borderRadius: '18px', border: 'none', background: themeColor, color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}>INITIALIZE CLOUD</button>
+              <button onClick={() => setStep('reg-email')} style={{ padding: '22px', borderRadius: '18px', border: 'none', background: themeColor, color: 'black', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer' }}>INITIALIZE CLOUD</button>
               <button onClick={() => setStep('login')} style={{ padding: '22px', borderRadius: '18px', border: '1px solid #334155', background: 'transparent', color: 'white', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer' }}>OPERATOR LOGIN</button>
             </div>
             <p style={{ marginTop: '40px', fontSize: '0.7rem', color: '#334155', fontWeight: 'bold' }}>SYSTEM STATUS: OPTIMAL | VER 5.2.0</p>
@@ -305,14 +322,14 @@ export default function Home() {
               <button 
                 onClick={() => {
                   if(step === 'reg-email') sendVerification('reg-code');
-                  else if(step === 'reg-code') { if(inputCode === generatedCode) setStep('reg-pass'); else showNotify("❌ CODE INVALID"); }
+                  else if(step === 'reg-code') { if(inputCode === generatedCode) setStep('reg-pass'); else showNotify("❌ CODE_INVALID"); }
                   else if(step === 'reg-pass') finalizeRegistration();
                   else if(step === 'login') handleLogin();
                 }}
                 disabled={loading}
-                style={{ padding: '20px', borderRadius: '15px', border: 'none', background: themeColor, color: 'white', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', marginTop: '10px' }}
+                style={{ padding: '20px', borderRadius: '15px', border: 'none', background: themeColor, color: 'black', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', marginTop: '10px' }}
               >
-                {loading ? 'SYNCHRONIZING...' : 'CONTINUE'}
+                {loading ? 'SYNCHRONIZING...' : 'CONFIRM'}
               </button>
               <button onClick={() => setStep('start')} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '0.85rem' }}>Abort Connection</button>
             </div>
@@ -324,7 +341,6 @@ export default function Home() {
       {step === 'user-dashboard' && (
         <div style={{ display: 'flex', minHeight: '100vh' }}>
           
-          {/* SIDE NAVIGATION PANEL */}
           <div style={{ width: '300px', ...glassPanel, borderRight: '1px solid rgba(255,255,255,0.05)', padding: '40px 20px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '60px', padding: '0 15px' }}>
               <div style={{ width: '40px', height: '40px', background: themeColor, borderRadius: '12px' }}></div>
@@ -332,167 +348,78 @@ export default function Home() {
             </div>
 
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button onClick={() => setDashView('analytics')} className={`sidebar-btn ${dashView === 'analytics' ? 'active' : ''}`}>
-                <span>📊</span> ANALYTICS HUB
-              </button>
-              <button onClick={() => setDashView('links')} className={`sidebar-btn ${dashView === 'links' ? 'active' : ''}`}>
-                <span>🔗</span> ASSET MANAGER
-              </button>
-              <button onClick={() => setDashView('customize')} className={`sidebar-btn ${dashView === 'customize' ? 'active' : ''}`}>
-                <span>🎨</span> SYSTEM DESIGN
-              </button>
+              <button onClick={() => setDashView('analytics')} className={`sidebar-btn ${dashView === 'analytics' ? 'active' : ''}`}>📊 ANALYTICS HUB</button>
+              <button onClick={() => setDashView('links')} className={`sidebar-btn ${dashView === 'links' ? 'active' : ''}`}>🔗 ASSET MANAGER</button>
+              <button onClick={() => setDashView('customize')} className={`sidebar-btn ${dashView === 'customize' ? 'active' : ''}`}>🎨 SYSTEM DESIGN</button>
             </div>
 
             <div style={{ padding: '25px', background: 'rgba(0,0,0,0.2)', borderRadius: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                <div style={{ width: '8px', height: '8px', background: '#10b981', borderRadius: '50%' }}></div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>SECURE SESSION</span>
-              </div>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser?.email}</p>
+              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#10b981' }}>● SECURE_SESSION</span>
+              <p style={{ margin: '10px 0 0 0', fontSize: '0.8rem', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser?.email}</p>
               <button onClick={() => { localStorage.removeItem('bx_active_session'); setStep('start'); }} style={{ width: '100%', marginTop: '20px', padding: '12px', borderRadius: '10px', background: '#f43f5e', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>TERMINATE</button>
             </div>
           </div>
 
-          {/* DYNAMIC VIEWPORT */}
-          <div style={{ flex: 1, padding: '60px', overflowY: 'auto', maxHeight: '100vh' }}>
-            
+          <div style={{ flex: 1, padding: '60px', overflowY: 'auto' }}>
             {dashView === 'analytics' && (
               <div className="fade-up">
-                <header style={{ marginBottom: '50px' }}>
-                  <h1 style={{ fontSize: '2.8rem', fontWeight: '900' }}>System <span style={{ color: themeColor }}>Intelligence</span></h1>
-                  <p style={{ color: '#64748b' }}>Real-time performance metrics for your distributed assets.</p>
-                </header>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '25px', marginBottom: '50px' }}>
+                <h1 style={{ fontSize: '2.8rem', fontWeight: '900' }}>System <span style={{ color: themeColor }}>Intelligence</span></h1>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '25px', marginTop: '40px' }}>
                   {[
                     { label: 'TOTAL ASSET HITS', val: myLinks.reduce((a,b)=>a+b.clicks, 0), color: themeColor },
                     { label: 'ACTIVE NODES', val: myLinks.length, color: '#a855f7' },
                     { label: 'GLOBAL REACH', val: '94.2%', color: '#10b981' }
                   ].map((stat, i) => (
-                    <div key={i} style={{ ...glassPanel, padding: '35px', borderRadius: '30px', position: 'relative' }}>
-                      <div style={{ position: 'absolute', top: 0, left: '10%', width: '80%', height: '2px', background: stat.color, opacity: 0.5 }}></div>
-                      <p style={{ color: '#475569', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px' }}>{stat.label}</p>
+                    <div key={i} style={{ ...glassPanel, padding: '35px', borderRadius: '30px' }}>
+                      <p style={{ color: '#475569', fontSize: '0.85rem', fontWeight: 'bold' }}>{stat.label}</p>
                       <h2 style={{ fontSize: '3.2rem', margin: 0 }}>{stat.val}</h2>
                     </div>
                   ))}
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '25px' }}>
-                  <div style={{ ...glassPanel, padding: '40px', borderRadius: '35px' }}>
-                    <h3 style={{ marginBottom: '30px' }}>Traffic Velocity (Last 24h)</h3>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', height: '200px', gap: '12px' }}>
-                      {[40, 70, 45, 90, 65, 80, 55, 100, 85, 40, 60, 75].map((h, i) => (
-                        <div key={i} style={{ flex: 1, background: `linear-gradient(to top, ${themeColor}, transparent)`, height: `${h}%`, borderRadius: '6px' }}></div>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ ...glassPanel, padding: '40px', borderRadius: '35px' }}>
-                    <h3 style={{ marginBottom: '25px' }}>Latest Logs</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                      {systemLogs.map(log => (
-                        <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '10px' }}>
-                          <span style={{ color: themeColor }}>[{log.time}]</span>
-                          <span style={{ color: '#94a3b8' }}>{log.action}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
 
             {dashView === 'links' && (
               <div className="fade-up">
-                <header style={{ marginBottom: '40px' }}>
-                  <h1 style={{ fontSize: '2.8rem', fontWeight: '900' }}>Asset <span style={{ color: themeColor }}>Deployment</span></h1>
-                </header>
-
-                <div style={{ ...glassPanel, padding: '45px', borderRadius: '40px', marginBottom: '50px' }}>
-                  <h3 style={{ marginTop: 0, marginBottom: '30px' }}>Configuration Engine</h3>
+                <h1 style={{ fontSize: '2.8rem', fontWeight: '900' }}>Asset <span style={{ color: themeColor }}>Deployment</span></h1>
+                <div style={{ ...glassPanel, padding: '45px', borderRadius: '40px', marginTop: '40px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-                    <input className="bx-input-field" placeholder="Display Title" value={linkTitle} onChange={(e)=>setLinkTitle(e.target.value)} />
-                    <input className="bx-input-field" placeholder="Asset Cover URL (HTTPS)" value={linkImage} onChange={(e)=>setLinkImage(e.target.value)} />
+                    <input className="bx-input-field" placeholder="Asset Title" value={linkTitle} onChange={(e)=>setLinkTitle(e.target.value)} />
+                    <input className="bx-input-field" placeholder="Cover Image URL" value={linkImage} onChange={(e)=>setLinkImage(e.target.value)} />
                   </div>
-                  <input className="bx-input-field" style={{ marginBottom: '25px' }} placeholder="Final Target Destination (e.g., https://mediafire.com/...)" value={linkUrl} onChange={(e)=>setLinkUrl(e.target.value)} />
+                  <input className="bx-input-field" style={{ marginBottom: '25px' }} placeholder="Final Destination URL" value={linkUrl} onChange={(e)=>setLinkUrl(e.target.value)} />
                   
-                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '30px', borderRadius: '25px', marginBottom: '30px', border: '1px solid #1e293b' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                      <label style={{ fontWeight: 'bold', color: themeColor }}>SECURITY LAYERS SELECTION</label>
-                      <select value={numSteps} onChange={(e)=>setNumSteps(parseInt(e.target.value))} style={{ padding: '10px 20px', background: '#020617', border: `1px solid ${themeColor}`, borderRadius: '10px', color: 'white' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '30px', borderRadius: '25px', marginBottom: '30px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                      <label style={{ fontWeight: 'bold', color: themeColor }}>SECURITY LAYERS</label>
+                      <select value={numSteps} onChange={(e)=>setNumSteps(parseInt(e.target.value))} style={{ background: '#020617', border: `1px solid ${themeColor}`, color: 'white', borderRadius: '8px' }}>
                         <option value="1">1 LAYER</option><option value="2">2 LAYERS</option><option value="3">3 LAYERS</option>
                       </select>
                     </div>
                     <div style={{ display: 'flex', gap: '15px' }}>
                       {Array.from({ length: numSteps }).map((_, i) => (
-                        <input key={i} className="bx-input-field" style={{ fontSize: '0.8rem' }} placeholder={`Redirect Layer ${i+1}`} value={stepUrls[i]} onChange={(e)=>{const n=[...stepUrls]; n[i]=e.target.value; setStepUrls(n);}} />
+                        <input key={i} className="bx-input-field" placeholder={`Layer ${i+1} URL`} value={stepUrls[i]} onChange={(e)=>{const n=[...stepUrls]; n[i]=e.target.value; setStepUrls(n);}} />
                       ))}
                     </div>
                   </div>
                   
-                  <button onClick={deploySmartLink} disabled={loading} style={{ width: '100%', padding: '22px', borderRadius: '18px', background: themeColor, color: 'white', fontWeight: '900', fontSize: '1.2rem', border: 'none', cursor: 'pointer', transition: '0.3s' }}>
-                    {loading ? 'ENCRYPTING ASSET...' : 'GENERATE BX-DEPLOYMENT'}
+                  <button onClick={deploySmartLink} disabled={loading} style={{ width: '100%', padding: '22px', borderRadius: '18px', background: themeColor, color: 'black', fontWeight: '900', fontSize: '1.2rem', border: 'none', cursor: 'pointer' }}>
+                    {loading ? 'ENCRYPTING...' : 'EXECUTE DEPLOYMENT'}
                   </button>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <h3 style={{ marginBottom: '10px' }}>Live Asset Nodes</h3>
-                  {myLinks.map(link => (
-                    <div key={link.id} style={{ ...glassPanel, padding: '25px', borderRadius: '25px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <img src={link.image} style={{ width: '65px', height: '65px', borderRadius: '18px', border: `2px solid ${themeColor}`, objectFit: 'cover' }} />
-                        <div style={{ maxWidth: '350px' }}>
-                          <h4 style={{ margin: '0 0 5px 0', fontSize: '1.2rem' }}>{link.title}</h4>
-                          <p style={{ margin: 0, color: themeColor, fontSize: '0.75rem', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onClick={() => window.open(link.short)}>{link.short}</p>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '30px', alignItems: 'center' }}>
-                        <div style={{ textAlign: 'center' }}>
-                          <span style={{ fontSize: '1.5rem', fontWeight: '900', display: 'block' }}>{link.clicks}</span>
-                          <span style={{ fontSize: '0.6rem', color: '#475569' }}>CLICKS</span>
-                        </div>
-                        <button onClick={() => setMyLinks(myLinks.filter(l => l.id !== link.id))} style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid #f43f5e', color: '#f43f5e', padding: '12px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold' }}>TERMINATE</button>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
 
             {dashView === 'customize' && (
               <div className="fade-up">
-                <header style={{ marginBottom: '40px' }}>
-                  <h1 style={{ fontSize: '2.8rem', fontWeight: '900' }}>System <span style={{ color: themeColor }}>Interface</span></h1>
-                </header>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '30px' }}>
-                  <div style={{ ...glassPanel, padding: '40px', borderRadius: '35px' }}>
-                    <h3 style={{ marginBottom: '25px' }}>Identity Colors</h3>
-                    <div style={{ display: 'flex', gap: '15px' }}>
-                      {['#00d2ff', '#a855f7', '#10b981', '#f59e0b', '#f43f5e'].map(c => (
-                        <div key={c} onClick={() => setThemeColor(c)} style={{ width: '50px', height: '50px', borderRadius: '15px', background: c, cursor: 'pointer', border: themeColor === c ? '4px solid white' : 'none', transition: '0.2s' }}></div>
-                      ))}
-                    </div>
-                    <div style={{ marginTop: '30px' }}>
-                      <label style={{ display: 'block', marginBottom: '10px', fontSize: '0.8rem', color: '#64748b' }}>GLASS MORPHISM OPACITY</label>
-                      <input type="range" min="0.1" max="1" step="0.05" value={glassOpacity} onChange={(e)=>setGlassOpacity(e.target.value)} style={{ width: '100%', accentColor: themeColor }} />
-                    </div>
+                <h1 style={{ fontSize: '2.8rem', fontWeight: '900' }}>System <span style={{ color: themeColor }}>Interface</span></h1>
+                <div style={{ ...glassPanel, padding: '40px', borderRadius: '35px', marginTop: '40px' }}>
+                  <h3 style={{ color: themeColor }}>BX GLOBAL SHORTENER</h3>
+                  <div style={{ display: 'flex', gap: '15px', marginTop: '20px' }}>
+                    <input className="bx-input-field" placeholder="Paste deployment URL..." value={urlToShorten} onChange={(e)=>setUrlToShorten(e.target.value)} />
+                    <button onClick={executeShorten} style={{ padding: '0 30px', background: themeColor, color: 'black', borderRadius: '14px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>SHORTEN</button>
                   </div>
-                  
-                  {/* --- ENGLISH GLOBAL SHORTENER --- */}
-                  <div style={{ ...glassPanel, padding: '40px', borderRadius: '35px', border: `1px dashed ${themeColor}` }}>
-                    <h3 style={{ color: themeColor, marginTop: 0 }}>BX GLOBAL SHORTENER</h3>
-                    <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '25px' }}>Compress any BX deployment URL into a clean, social-ready link.</p>
-                    <div style={{ display: 'flex', gap: '15px' }}>
-                      <input className="bx-input-field" placeholder="Paste deployment URL..." value={urlToShorten} onChange={(e)=>setUrlToShorten(e.target.value)} />
-                      <button onClick={executeShorten} style={{ padding: '0 30px', background: themeColor, color: 'white', borderRadius: '14px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>SHORTEN</button>
-                    </div>
-                    {shortenedResult && (
-                      <div className="fade-up" style={{ marginTop: '25px', padding: '20px', background: 'rgba(0,0,0,0.3)', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <code style={{ color: '#10b981', fontSize: '1.1rem' }}>{shortenedResult}</code>
-                        <button onClick={() => { navigator.clipboard.writeText(shortenedResult); showNotify("📋 COPIED TO CLIPBOARD"); }} style={{ padding: '10px 20px', background: '#334155', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer' }}>COPY</button>
-                      </div>
-                    )}
-                  </div>
+                  {shortenedResult && <p style={{ marginTop: '20px', color: '#10b981' }}>{shortenedResult}</p>}
                 </div>
               </div>
             )}
@@ -500,18 +427,15 @@ export default function Home() {
         </div>
       )}
 
-      {/* GLOBAL NOTIFICATION SYSTEM */}
       {message && (
         <div style={{ 
           position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)', 
           padding: '18px 40px', borderRadius: '100px', background: '#1e293b', border: `1px solid ${themeColor}`,
-          color: 'white', fontWeight: '900', zIndex: 99999, boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-          animation: 'fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+          color: 'white', fontWeight: '900', zIndex: 99999, animation: 'fadeUp 0.4s ease'
         }}>
           {message}
         </div>
       )}
-
     </div>
   );
 }
