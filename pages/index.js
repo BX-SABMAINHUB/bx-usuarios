@@ -94,35 +94,31 @@ export default function Home() {
     } else { showNotify("❌ ACCESS DENIED: WRONG PIN"); }
   };
 
-  // --- LOGIC: SMART LINK ENGINE (OPTIMIZADO PARA LINKS CORTOS) ---
+  // --- LOGIC: SMART LINK ENGINE (OPTIMIZADO PARA LINKS CORTOS 10-20 DIGITOS) ---
   const createSmartLink = () => {
     if (!linkUrl) { showNotify("⚠️ DESTINATION REQUIRED"); return; }
     setLoading(true);
     
     setTimeout(() => {
       const domain = window.location.origin;
-      // Generamos un ID único corto de 12 caracteres (10-20 según pediste)
-      const shortId = Math.random().toString(36).substring(2, 14).toUpperCase();
+      // Generamos un ID único corto de exactamente 12 caracteres (Alfanumérico)
+      const shortId = Math.random().toString(36).substring(2, 8).toUpperCase() + Math.random().toString(36).substring(2, 8).toUpperCase();
       
       const newLink = {
         id: shortId,
         title: linkTitle || 'Premium Link',
         image: linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png',
-        short: `${domain}/unlock?id=${shortId}`, // URL MUCHO MÁS CORTA
-        config: {
-            u: btoa(linkUrl),
-            t: btoa(linkTitle || 'Final Validation'),
-            i: btoa(linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png'),
-            n: numSteps,
-            s: stepUrls.map(url => btoa(url || 'https://www.opera.com'))
-        },
-        clicks: Math.floor(Math.random() * 5),
+        short: `${domain}/unlock?id=${shortId}`, // LINK FINAL CORTITO
+        target: linkUrl, 
+        steps: numSteps,
+        info: stepUrls,
+        clicks: 0,
         date: new Date().toLocaleDateString()
       };
 
       const updated = [newLink, ...myLinks];
       setMyLinks(updated);
-      localStorage.setItem('bx_links', JSON.stringify(updated));
+      localStorage.setItem('bx_links', JSON.stringify(updated)); // Guardamos en la "DB" local
       setLinkUrl(''); setLinkTitle(''); setLinkImage('');
       setLoading(false);
       showNotify("🚀 LINK DEPLOYED: " + shortId);
