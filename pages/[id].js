@@ -12,7 +12,7 @@ export default function Redirect() {
         .then(data => {
           if (data && data.url) window.location.href = data.url;
         })
-        .catch(err => console.log(err));
+        .catch(err => console.error(err));
     }
   }, [id]);
 
