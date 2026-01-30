@@ -20,6 +20,10 @@ export default function Home() {
   const [linkTitle, setLinkTitle] = useState('');
   const [linkImage, setLinkImage] = useState(''); 
   const [myLinks, setMyLinks] = useState([]);
+
+  // --- NUEVOS ESTADOS PARA PASOS (VALUE & INFO STEPS) ---
+  const [numSteps, setNumSteps] = useState(1);
+  const [stepUrls, setStepUrls] = useState(['', '', '']);
   
   // --- CUSTOMIZATION ENGINE ---
   const [themeColor, setThemeColor] = useState('#00d2ff');
@@ -101,11 +105,14 @@ export default function Home() {
       const data = {
         u: btoa(linkUrl),
         t: btoa(linkTitle || 'Final Validation'), // Cambiado de Prueba Final
-        i: btoa(linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png')
+        i: btoa(linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png'),
+        s1: btoa(stepUrls[0] || 'https://www.opera.com'),
+        s2: btoa(stepUrls[1] || 'https://www.opera.com'),
+        s3: btoa(stepUrls[2] || 'https://www.opera.com')
       };
 
-      // Estos parámetros se pasan a la página de /unlock
-      const shortUrl = `${domain}/unlock?data=${data.u}&t=${data.t}&i=${data.i}`;
+      // Estos parámetros se pasan a la página de /unlock incluyendo n (steps) y s (links)
+      const shortUrl = `${domain}/unlock?data=${data.u}&t=${data.t}&i=${data.i}&n=${numSteps}&s1=${data.s1}&s2=${data.s2}&s3=${data.s3}`;
       const newLink = {
         id: Math.random().toString(36).substr(2, 6),
         title: linkTitle || 'Premium Link',
@@ -327,10 +334,29 @@ export default function Home() {
                       <input placeholder="https://..." value={linkImage} onChange={(e)=>setLinkImage(e.target.value)} style={{ padding: '15px', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', color: 'white' }} />
                     </div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '30px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
                     <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Destination URL</label>
                     <input placeholder="https://..." value={linkUrl} onChange={(e)=>setLinkUrl(e.target.value)} style={{ padding: '15px', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', color: 'white' }} />
                   </div>
+
+                  {/* NUEVA SECCIÓN DE CONFIGURACIÓN DE PASOS ADICIONALES */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '15px', marginBottom: '30px', padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '15px', border: '1px solid #1e293b' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label style={{ fontSize: '0.7rem', color: themeColor, fontWeight: 'bold' }}>VALUE STEPS</label>
+                      <select value={numSteps} onChange={(e)=>setNumSteps(parseInt(e.target.value))} style={{ padding: '12px', background: '#020617', border: `1px solid ${themeColor}`, borderRadius: '10px', color: 'white' }}>
+                        <option value="1">1 STEP</option><option value="2">2 STEPS</option><option value="3">3 STEPS</option>
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label style={{ fontSize: '0.7rem', color: themeColor, fontWeight: 'bold' }}>INFO STEPS (REDIRECT LINKS)</label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {Array.from({ length: numSteps }).map((_, idx) => (
+                          <input key={idx} placeholder={`Step ${idx + 1} URL`} value={stepUrls[idx]} onChange={(e) => { const n = [...stepUrls]; n[idx] = e.target.value; setStepUrls(n); }} style={{ flex: 1, padding: '12px', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', color: 'white', fontSize: '0.75rem' }} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   <button onClick={createSmartLink} disabled={loading} style={{ 
                     width: '100%', padding: '20px', borderRadius: '15px', border: 'none', background: themeColor, color: 'white', 
                     fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer'
