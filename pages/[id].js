@@ -1,26 +1,20 @@
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
-export default function RedirectPage() {
+export default function Redirect() {
   const router = useRouter();
   const { id } = router.query;
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (id) {
       fetch(`/api/links?id=${id}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && data.url) {
-            window.location.href = data.url;
-          } else {
-            setLoading(false);
-          }
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.url) window.location.href = data.url;
         })
-        .catch(() => setLoading(false));
+        .catch(err => console.log(err));
     }
   }, [id]);
 
-  if (loading) return <p>Cargando destino...</p>;
-  return <p>Error: El enlace no existe o ha expirado.</p>;
+  return <div>Redireccionando...</div>;
 }
