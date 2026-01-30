@@ -28,17 +28,15 @@ export default function Home() {
   const [banInput, setBanInput] = useState('');
 
   // --- LOOT-SYSTEMS STATES (USER DASHBOARD) ---
-  const [dashView, setDashView] = useState('analytics'); // analytics, links, appearance, dev, settings
+  const [dashView, setDashView] = useState('analytics');
   const [linkUrl, setLinkUrl] = useState('');
   const [linkTitle, setLinkTitle] = useState('');
   const [myLinks, setMyLinks] = useState([]);
   
-  // Dashboard Mock Settings
   const [themeColor, setThemeColor] = useState('#8b5cf6');
   const [redirectDelay, setRedirectDelay] = useState(5);
   const [allowVpn, setAllowVpn] = useState(false);
 
-  // --- LOAD DATA ---
   useEffect(() => {
     const savedAccounts = localStorage.getItem('bx_accounts');
     const savedLogs = localStorage.getItem('bx_logs');
@@ -53,7 +51,6 @@ export default function Home() {
     if (savedLinks) setMyLinks(JSON.parse(savedLinks));
   }, []);
 
-  // --- UTILS ---
   const saveLog = (mail, status) => {
     const newLog = { mail, verified: status, date: new Date().toLocaleTimeString() };
     const updated = [newLog, ...activityLogs];
@@ -66,7 +63,6 @@ export default function Home() {
     return badPatterns.some(pattern => pattern.test(text));
   };
 
-  // --- EMAIL SYSTEM ---
   const sendVerification = async (targetStep, type = 'code') => {
     if (blacklist.includes(email)) {
       setMessage("🚫 PERMANENT BAN: ACCESS DENIED.");
@@ -91,7 +87,6 @@ export default function Home() {
     else { setMessage("Connection Failed."); }
   };
 
-  // --- AUTH LOGIC ---
   const finalizeRegistration = () => {
     if (password.length < 4 || password.length > 8) {
       setMessage("Password must be 4-8 digits.");
@@ -119,27 +114,32 @@ export default function Home() {
     }
   };
 
-  // --- LINK GENERATOR LOGIC ---
+  // --- MODIFIED LINK GENERATOR (REAL) ---
   const createSmartLink = () => {
     if (!linkUrl) return;
     const id = Math.random().toString(36).substr(2, 6);
+    
+    // Obtiene el dominio real donde está alojada la web automáticamente
+    const domain = window.location.origin;
+
     const newLink = {
       id: id,
       title: linkTitle || 'Untitled Link',
       original: linkUrl,
-      // Simulated shortened link structure
-      short: `bx-sys.tm/${id}`, 
+      short: `${domain}/${id}`, // Enlace REAL que apunta a pages/[id].js
       clicks: 0,
       impressions: 0,
       ctr: '0%',
       date: new Date().toLocaleDateString(),
       active: true
     };
+    
     const updated = [newLink, ...myLinks];
     setMyLinks(updated);
     localStorage.setItem('bx_links', JSON.stringify(updated));
     setLinkUrl('');
     setLinkTitle('');
+    setMessage("Link Created Successfully!");
   };
 
   const deleteLink = (id) => {
@@ -148,14 +148,12 @@ export default function Home() {
     localStorage.setItem('bx_links', JSON.stringify(updated));
   };
 
-  const handleLinkClick = (originalUrl) => {
-    // Simulates the redirect logic
-    if(confirm("Simulating Redirect Logic... \n(In production, this would open the ad-supported page). \n\nGo to destination?")) {
-      window.open(originalUrl, '_blank');
-    }
+  // --- MODIFIED CLICK HANDLER (REAL) ---
+  const handleLinkClick = (shortUrl) => {
+    // Abre directamente el enlace generado para pasar por la página tipo Lootlabs
+    window.open(shortUrl, '_blank');
   };
 
-  // --- OWNER LOGIC ---
   const sendMessageToOwner = async () => {
     if (checkProfanity(currentMessage)) {
       const updatedBlacklist = [...blacklist, email];
@@ -204,7 +202,6 @@ export default function Home() {
   return (
     <div style={{ backgroundColor: '#020617', color: '#f8fafc', minHeight: '100vh', padding: '20px', fontFamily: 'Inter, sans-serif' }}>
       
-      {/* --- MAIN CONTAINER --- */}
       <div style={{ 
         maxWidth: (step === 'owner-panel' || step === 'user-dashboard') ? '1400px' : '480px', 
         margin: 'auto', 
@@ -220,7 +217,6 @@ export default function Home() {
           <h1 style={{ textAlign: 'center', fontSize: '2.8rem', color: '#38bdf8', marginBottom: '40px', fontWeight: '900', letterSpacing: '3px', textShadow: '0 0 20px rgba(56,189,248,0.4)' }}>BX SYSTEMS</h1>
         )}
 
-        {/* --- START MENU --- */}
         {step === 'start' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <button onClick={() => setStep('reg-email')} style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', padding: '20px', borderRadius: '15px', border: 'none', fontWeight: 'bold', fontSize: '1.2rem', cursor: 'pointer', boxShadow: '0 10px 25px -5px rgba(37,99,235,0.5)' }}>START FREE TRIAL</button>
@@ -230,7 +226,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* --- REGISTRATION FLOW --- */}
         {step === 'reg-email' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             <h3 style={{ textAlign: 'center', color: '#3b82f6' }}>Create Account</h3>
@@ -257,7 +252,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* --- LOGIN FLOW --- */}
         {step === 'login' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             <h3 style={{ textAlign: 'center', color: '#fff' }}>User Login</h3>
@@ -268,7 +262,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* --- SUPPORT FLOW --- */}
         {step === 'msg-auth-email' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
             <h3 style={{ textAlign: 'center', color: '#38bdf8' }}>Support Ticket</h3>
@@ -292,13 +285,9 @@ export default function Home() {
           </div>
         )}
 
-        {/* ================================================================================= */}
-        {/* --- ENTERPRISE USER DASHBOARD (RENOVADO) --- */}
-        {/* ================================================================================= */}
         {step === 'user-dashboard' && (
           <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '40px', minHeight: '650px' }}>
             
-            {/* --- SIDEBAR --- */}
             <div style={{ borderRight: '1px solid #334155', paddingRight: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '40px' }}>
@@ -334,10 +323,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* --- CONTENT AREA --- */}
             <div style={{ overflowY: 'auto', paddingRight: '10px' }}>
               
-              {/* VISTA: ANALYTICS */}
               {dashView === 'analytics' && (
                 <div>
                   <h2 style={{ marginBottom: '30px', fontWeight: '300' }}>Traffic Overview</h2>
@@ -369,7 +356,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* VISTA: LINKS */}
               {dashView === 'links' && (
                 <div>
                   <h2 style={{ marginBottom: '20px', fontWeight: '300' }}>Link Management</h2>
@@ -392,8 +378,9 @@ export default function Home() {
                             <div style={{ width: '50px', height: '50px', background: '#0f172a', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>🔗</div>
                             <div>
                               <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'white' }}>{l.title}</div>
-                              <a href="#" onClick={(e)=>{ e.preventDefault(); handleLinkClick(l.original); }} style={{ color: themeColor, textDecoration: 'none', fontSize: '0.9rem', display: 'block', marginTop: '5px' }}>
-                                {l.short} <span style={{fontSize: '0.7rem', color: '#64748b', marginLeft: '10px'}}>⬅ CLICK TO TEST</span>
+                              {/* ENLACE REAL CORREGIDO */}
+                              <a href="#" onClick={(e)=>{ e.preventDefault(); handleLinkClick(l.short); }} style={{ color: themeColor, textDecoration: 'none', fontSize: '0.9rem', display: 'block', marginTop: '5px' }}>
+                                {l.short} <span style={{fontSize: '0.7rem', color: '#64748b', marginLeft: '10px'}}>⬅ TEST REAL LINK</span>
                               </a>
                               <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '5px' }}>Target: {l.original.substring(0, 40)}...</div>
                             </div>
@@ -417,7 +404,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* VISTA: APPEARANCE */}
               {dashView === 'appearance' && (
                 <div>
                    <h2 style={{ marginBottom: '20px', fontWeight: '300' }}>Page Design</h2>
@@ -445,7 +431,6 @@ export default function Home() {
                        </div>
                      </div>
                      
-                     {/* Preview Phone */}
                      <div style={{ background: '#020617', borderRadius: '30px', padding: '20px', border: '4px solid #334155', width: '280px', margin: 'auto', minHeight: '450px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                        <div style={{ width: '60px', height: '60px', background: themeColor, borderRadius: '15px', marginBottom: '20px' }}></div>
                        <div style={{ width: '80%', height: '15px', background: '#1e293b', borderRadius: '5px', marginBottom: '10px' }}></div>
@@ -458,7 +443,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* VISTA: DEVELOPERS */}
               {dashView === 'dev' && (
                 <div>
                    <h2 style={{ marginBottom: '20px', fontWeight: '300' }}>Developer Tools</h2>
@@ -479,7 +463,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* VISTA: SETTINGS */}
               {dashView === 'settings' && (
                 <div>
                    <h2 style={{ marginBottom: '20px', fontWeight: '300' }}>Account Settings</h2>
@@ -510,9 +493,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* ================================================================================= */}
-        {/* --- OWNER CONSOLE (INTACTA) --- */}
-        {/* ================================================================================= */}
         {step === 'owner' && (
           <div style={{ textAlign: 'center' }}>
             <h2 style={{ color: '#f43f5e', marginBottom: '25px' }}>Admin Authorization</h2>
@@ -523,7 +503,6 @@ export default function Home() {
 
         {step === 'owner-panel' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '15px' }}>
-            {/* 1. DATA LOGS */}
             <div style={{ background: '#020617', padding: '20px', borderRadius: '20px', border: '1px solid #1e293b' }}>
               <h5 style={{ color: '#38bdf8', marginBottom: '15px', borderBottom: '1px solid #1e293b', paddingBottom: '10px' }}>REGISTRY LOGS</h5>
               <div style={{ maxHeight: '400px', overflowY: 'auto', fontSize: '0.8rem' }}>
@@ -532,7 +511,6 @@ export default function Home() {
                 ))}
               </div>
             </div>
-            {/* 2. INBOX */}
             <div style={{ background: '#020617', padding: '20px', borderRadius: '20px', border: '1px solid #38bdf8' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #38bdf8', paddingBottom: '10px' }}>
                 <h5 style={{ color: '#38bdf8', margin: 0 }}>INBOX</h5>
@@ -549,7 +527,6 @@ export default function Home() {
                 }
               </div>
             </div>
-            {/* 3. MODERATION */}
             <div style={{ background: '#020617', padding: '20px', borderRadius: '20px', border: '1px solid #f43f5e' }}>
               <h5 style={{ color: '#f43f5e', marginBottom: '15px', borderBottom: '1px solid #f43f5e', paddingBottom: '10px' }}>BLACKLIST</h5>
               <input type="email" placeholder="Ban Email..." value={banInput} onChange={(e)=>setBanInput(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#0f172a', border: '1px solid #f43f5e', color: 'white', fontSize: '0.8rem' }} />
@@ -563,7 +540,6 @@ export default function Home() {
                 ))}
               </div>
             </div>
-            {/* 4. MESSENGER */}
             <div style={{ background: '#020617', padding: '20px', borderRadius: '20px', border: '1px solid #10b981' }}>
               <h5 style={{ color: '#10b981', marginBottom: '15px', borderBottom: '1px solid #10b981', paddingBottom: '10px' }}>RESPONSE</h5>
               <input type="email" placeholder="To:" onChange={(e)=>setTargetEmail(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#0f172a', border: '1px solid #10b981', color: 'white' }} />
