@@ -115,50 +115,41 @@ export default function Home() {
     }
   };
 
-  // --- MODIFIED LINK GENERATOR (SAVES TO MONGODB) ---
-  const createSmartLink = async () => {
+  // --- MODIFIED LINK GENERATOR (NO DATABASE NEEDED) ---
+  const createSmartLink = () => {
     if (!linkUrl) {
         setMessage("❌ Please enter a Destination URL");
         return;
     }
     
-    const id = Math.random().toString(36).substr(2, 6);
     const domain = window.location.origin;
 
+    // Codificamos los datos para pasarlos por la URL de forma segura
+    const encodedUrl = btoa(linkUrl);
+    const encodedTitle = btoa(linkTitle || 'Alexgaming');
+    const encodedImg = btoa(linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png');
+
+    // El link llevará toda la información en los parámetros
+    const shortUrl = `${domain}/unlock?data=${encodedUrl}&t=${encodedTitle}&i=${encodedImg}`;
+
     const newLink = {
-      id: id,
-      title: linkTitle || 'Alexgaming', // Título personalizado
-      image: linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png', // Imagen personalizada
-      url: linkUrl, // El destino real
-      short: `${domain}/${id}`, 
+      id: Math.random().toString(36).substr(2, 6),
+      title: linkTitle || 'Alexgaming',
+      image: linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png',
+      url: linkUrl,
+      short: shortUrl, 
       clicks: 0,
       date: new Date().toLocaleDateString(),
     };
 
-    setMessage("Saving to Database...");
-
-    // ENVIAR A MONGODB VIA API
-    try {
-        const res = await fetch('/api/links', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newLink)
-        });
-
-        if (res.ok) {
-            const updated = [newLink, ...myLinks];
-            setMyLinks(updated);
-            localStorage.setItem('bx_links', JSON.stringify(updated));
-            setLinkUrl('');
-            setLinkTitle('');
-            setLinkImage('');
-            setMessage("Link Created & Saved to Cloud! ✅");
-        } else {
-            setMessage("❌ Database Error. Try again.");
-        }
-    } catch (error) {
-        setMessage("❌ Connection Failed.");
-    }
+    const updated = [newLink, ...myLinks];
+    setMyLinks(updated);
+    localStorage.setItem('bx_links', JSON.stringify(updated));
+    
+    setLinkUrl('');
+    setLinkTitle('');
+    setLinkImage('');
+    setMessage("¡Link Creado con Éxito! ✅");
   };
 
   const deleteLink = (id) => {
