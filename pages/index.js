@@ -94,30 +94,28 @@ export default function Home() {
     } else { showNotify("❌ ACCESS DENIED: WRONG PIN"); }
   };
 
-  // --- LOGIC: SMART LINK ENGINE (MODIFICADO A INGLÉS) ---
+  // --- LOGIC: SMART LINK ENGINE (OPTIMIZADO PARA LINKS CORTOS) ---
   const createSmartLink = () => {
     if (!linkUrl) { showNotify("⚠️ DESTINATION REQUIRED"); return; }
     setLoading(true);
     
     setTimeout(() => {
       const domain = window.location.origin;
-      // Aquí cambiamos los textos por defecto a Inglés para que coincidan con la imagen
-      const data = {
-        u: btoa(linkUrl),
-        t: btoa(linkTitle || 'Final Validation'), // Cambiado de Prueba Final
-        i: btoa(linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png'),
-        s1: btoa(stepUrls[0] || 'https://www.opera.com'),
-        s2: btoa(stepUrls[1] || 'https://www.opera.com'),
-        s3: btoa(stepUrls[2] || 'https://www.opera.com')
-      };
-
-      // Estos parámetros se pasan a la página de /unlock incluyendo n (steps) y s (links)
-      const shortUrl = `${domain}/unlock?data=${data.u}&t=${data.t}&i=${data.i}&n=${numSteps}&s1=${data.s1}&s2=${data.s2}&s3=${data.s3}`;
+      // Generamos un ID único corto de 12 caracteres (10-20 según pediste)
+      const shortId = Math.random().toString(36).substring(2, 14).toUpperCase();
+      
       const newLink = {
-        id: Math.random().toString(36).substr(2, 6),
+        id: shortId,
         title: linkTitle || 'Premium Link',
         image: linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png',
-        short: shortUrl, 
+        short: `${domain}/unlock?id=${shortId}`, // URL MUCHO MÁS CORTA
+        config: {
+            u: btoa(linkUrl),
+            t: btoa(linkTitle || 'Final Validation'),
+            i: btoa(linkImage || 'https://i.ibb.co/vzPRm9M/alexgaming.png'),
+            n: numSteps,
+            s: stepUrls.map(url => btoa(url || 'https://www.opera.com'))
+        },
         clicks: Math.floor(Math.random() * 5),
         date: new Date().toLocaleDateString()
       };
@@ -127,7 +125,7 @@ export default function Home() {
       localStorage.setItem('bx_links', JSON.stringify(updated));
       setLinkUrl(''); setLinkTitle(''); setLinkImage('');
       setLoading(false);
-      showNotify("🚀 LINK DEPLOYED TO NETWORK");
+      showNotify("🚀 LINK DEPLOYED: " + shortId);
     }, 1000);
   };
 
