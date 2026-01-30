@@ -166,7 +166,7 @@ export default function Home() {
               <button onClick={() => setStep('reg-email')} style={{ 
                 padding: '20px', borderRadius: '15px', border: 'none', background: `linear-gradient(135deg, ${themeColor}, ${accentColor})`,
                 color: 'white', fontWeight: '900', fontSize: '1.2rem', cursor: 'pointer', boxShadow: '0 10px 20px rgba(0,0,0,0.3)', animation: 'pulse 2s infinite'
-              }}>GET STARTED FREE</button>
+              }}>CREATE ACCOUNT</button>
               
               <button onClick={() => setStep('login')} style={{ 
                 padding: '20px', borderRadius: '15px', border: '1px solid #334155', background: 'rgba(255,255,255,0.05)',
@@ -199,11 +199,11 @@ export default function Home() {
               )}
 
               {step === 'reg-code' && (
-                <input type="text" maxLength="4" placeholder="Verification Code" onChange={(e)=>setInputCode(e.target.value)} style={{ padding: '18px', background: '#020617', border: '2px solid #3b82f6', borderRadius: '12px', color: 'white', textAlign: 'center', fontSize: '1.5rem', letterSpacing: '10px' }} />
+                <input type="text" maxLength="4" placeholder="Code" onChange={(e)=>setInputCode(e.target.value)} style={{ padding: '18px', background: '#020617', border: '2px solid #3b82f6', borderRadius: '12px', color: 'white', textAlign: 'center', fontSize: '1.5rem', letterSpacing: '10px' }} />
               )}
 
               {step === 'reg-pass' && (
-                <input type="password" placeholder="Create Secure PIN (4-8 digits)" onChange={(e)=>setPassword(e.target.value)} style={{ padding: '18px', background: '#020617', border: '1px solid #1e293b', borderRadius: '12px', color: 'white' }} />
+                <input type="password" placeholder="Create Secure PIN" onChange={(e)=>setPassword(e.target.value)} style={{ padding: '18px', background: '#020617', border: '1px solid #1e293b', borderRadius: '12px', color: 'white' }} />
               )}
 
               <button 
@@ -216,7 +216,7 @@ export default function Home() {
                 disabled={loading}
                 style={{ padding: '18px', borderRadius: '12px', border: 'none', background: themeColor, color: 'white', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer' }}
               >
-                {loading ? 'PROCESSING...' : 'CONTINUE SYSTEM ACCESS'}
+                {loading ? 'PROCESSING...' : 'CONTINUE ACCESS'}
               </button>
               
               <button onClick={() => setStep('start')} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>Return to Home</button>
@@ -239,9 +239,9 @@ export default function Home() {
             <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {[
                 { id: 'analytics', icon: '📊', label: 'ANALYTICS' },
-                { id: 'links', icon: '🔗', label: 'SMART LINKS' },
+                { id: 'links', icon: '🔗', label: 'MY LINKS' },
                 { id: 'appearance', icon: '🎨', label: 'CUSTOMIZE' },
-                { id: 'settings', icon: '⚙️', label: 'SECURITY' }
+                { id: 'settings', icon: '⚙️', label: 'SETTINGS' }
               ].map(item => (
                 <div 
                   key={item.id} 
@@ -260,9 +260,9 @@ export default function Home() {
             </nav>
 
             <div style={{ padding: '20px', background: 'rgba(0,0,0,0.2)', borderRadius: '20px', marginTop: '20px' }}>
-              <p style={{ fontSize: '0.7rem', color: '#475569', marginBottom: '10px' }}>CONNECTED AS</p>
+              <p style={{ fontSize: '0.7rem', color: '#475569', marginBottom: '5px' }}>LOGGED IN AS</p>
               <p style={{ fontSize: '0.85rem', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser?.email}</p>
-              <button onClick={() => setStep('start')} style={{ width: '100%', marginTop: '20px', padding: '12px', borderRadius: '10px', border: 'none', background: '#f43f5e', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>TERMINATE SESSION</button>
+              <button onClick={() => setStep('start')} style={{ width: '100%', marginTop: '20px', padding: '12px', borderRadius: '10px', border: 'none', background: '#f43f5e', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>LOGOUT</button>
             </div>
           </div>
 
@@ -270,12 +270,10 @@ export default function Home() {
           <div style={{ flex: 1, padding: '60px', overflowY: 'auto', maxHeight: '100vh' }}>
             
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '50px' }}>
-              <h1 style={{ fontSize: '2.5rem', margin: 0 }}>{dashView.toUpperCase()} <span style={{ color: themeColor }}>CORE</span></h1>
-              <div style={{ display: 'flex', gap: '20px' }}>
-                <div style={{ ...glassEffect, padding: '15px 25px', borderRadius: '15px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>NETWORK STATUS</div>
-                  <div style={{ fontSize: '0.9rem', color: '#10b981', fontWeight: 'bold' }}>● OPERATIONAL</div>
-                </div>
+              <h1 style={{ fontSize: '2.5rem', margin: 0 }}>{dashView.toUpperCase()} <span style={{ color: themeColor }}>HUB</span></h1>
+              <div style={{ ...glassEffect, padding: '15px 25px', borderRadius: '15px', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.7rem', color: '#64748b' }}>SERVER STATUS</div>
+                <div style={{ fontSize: '0.9rem', color: '#10b981', fontWeight: 'bold' }}>● ONLINE</div>
               </div>
             </header>
 
@@ -284,9 +282,9 @@ export default function Home() {
               <div className="animate-up">
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '25px', marginBottom: '40px' }}>
                   {[
-                    { label: 'GROSS CLICKS', val: myLinks.reduce((a,b)=>a+b.clicks, 0), sub: '+24% this week' },
-                    { label: 'ACTIVE NODES', val: myLinks.length, sub: 'Global reach' },
-                    { label: 'CONVERSION', val: '14.2%', sub: 'High engagement' }
+                    { label: 'TOTAL CLICKS', val: myLinks.reduce((a,b)=>a+b.clicks, 0), sub: '+12% increase' },
+                    { label: 'ACTIVE LINKS', val: myLinks.length, sub: 'Running globally' },
+                    { label: 'AVG CONVERSION', val: '8.4%', sub: 'Healthy traffic' }
                   ].map((stat, i) => (
                     <div key={i} style={{ ...glassEffect, padding: '30px', borderRadius: '25px', position: 'relative', overflow: 'hidden' }}>
                       <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: themeColor }}></div>
@@ -298,74 +296,67 @@ export default function Home() {
                 </div>
 
                 <div style={{ ...glassEffect, padding: '40px', borderRadius: '30px' }}>
-                  <h3 style={{ marginBottom: '30px' }}>Traffic Velocity Graph</h3>
+                  <h3 style={{ marginBottom: '30px' }}>Real-time Traffic Velocity</h3>
                   <div style={{ display: 'flex', alignItems: 'flex-end', height: '250px', gap: '15px' }}>
-                    {[30, 50, 40, 70, 90, 60, 80, 40, 100, 55, 75, 95].map((h, i) => (
-                      <div key={i} style={{ flex: 1, background: `linear-gradient(to top, ${themeColor}, transparent)`, height: `${h}%`, borderRadius: '8px 8px 0 0', opacity: 0.7 }}></div>
+                    {[20, 45, 30, 80, 60, 95, 40, 70, 50, 85, 65, 100].map((h, i) => (
+                      <div key={i} style={{ flex: 1, background: `linear-gradient(to top, ${themeColor}, transparent)`, height: `${h}%`, borderRadius: '8px 8px 0 0', opacity: 0.6 }}></div>
                     ))}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', color: '#475569', fontSize: '0.8rem' }}>
-                    <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:59</span>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* VIEW: LINKS (THE HEART) */}
+            {/* VIEW: LINKS */}
             {dashView === 'links' && (
               <div className="animate-up">
                 <div style={{ ...glassEffect, padding: '40px', borderRadius: '30px', marginBottom: '40px' }}>
-                  <h3 style={{ marginTop: 0, marginBottom: '25px' }}>Link Forge</h3>
+                  <h3 style={{ marginTop: 0, marginBottom: '25px' }}>Create New Smart Link</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Custom Title</label>
-                      <input placeholder="Ex: Premium Unlock" value={linkTitle} onChange={(e)=>setLinkTitle(e.target.value)} style={{ padding: '15px', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', color: 'white' }} />
+                      <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Custom Header Title</label>
+                      <input placeholder="Ex: Free Download" value={linkTitle} onChange={(e)=>setLinkTitle(e.target.value)} style={{ padding: '15px', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', color: 'white' }} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Asset URL (Image)</label>
-                      <input placeholder="https://image-link.com/..." value={linkImage} onChange={(e)=>setLinkImage(e.target.value)} style={{ padding: '15px', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', color: 'white' }} />
+                      <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Thumbnail URL</label>
+                      <input placeholder="https://..." value={linkImage} onChange={(e)=>setLinkImage(e.target.value)} style={{ padding: '15px', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', color: 'white' }} />
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '30px' }}>
-                    <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Final Destination</label>
-                    <input placeholder="https://your-content.com/secret" value={linkUrl} onChange={(e)=>setLinkUrl(e.target.value)} style={{ padding: '15px', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', color: 'white' }} />
+                    <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Destination URL</label>
+                    <input placeholder="https://..." value={linkUrl} onChange={(e)=>setLinkUrl(e.target.value)} style={{ padding: '15px', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', color: 'white' }} />
                   </div>
                   <button onClick={createSmartLink} disabled={loading} style={{ 
                     width: '100%', padding: '20px', borderRadius: '15px', border: 'none', background: themeColor, color: 'white', 
-                    fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', boxShadow: `0 10px 30px ${themeColor}44` 
+                    fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer'
                   }}>
-                    {loading ? 'CALCULATING HASH...' : 'INITIALIZE SMART LINK'}
+                    {loading ? 'GENERATING LINK...' : 'BUILD SMART LINK'}
                   </button>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <h3 style={{ margin: '20px 0' }}>Deployed Assets</h3>
+                  <h3 style={{ margin: '20px 0' }}>Your Active Links</h3>
                   {myLinks.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '100px', ...glassEffect, borderRadius: '30px', color: '#475569' }}>NO ASSETS DEPLOYED ON THIS NODE</div>
+                    <div style={{ textAlign: 'center', padding: '100px', ...glassEffect, borderRadius: '30px', color: '#475569' }}>NO LINKS FOUND IN YOUR ACCOUNT</div>
                   ) : (
                     myLinks.map(link => (
                       <div key={link.id} className="hover-scale" style={{ ...glassEffect, padding: '25px', borderRadius: '25px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
-                          <div style={{ position: 'relative' }}>
-                            <img src={link.image} style={{ width: '80px', height: '80px', borderRadius: '20px', objectFit: 'cover', border: `2px solid ${themeColor}` }} />
-                            <div style={{ position: 'absolute', bottom: '-5px', right: '-5px', background: '#10b981', width: '15px', height: '15px', borderRadius: '50%', border: '3px solid #020617' }}></div>
-                          </div>
+                          <img src={link.image} style={{ width: '80px', height: '80px', borderRadius: '20px', objectFit: 'cover', border: `2px solid ${themeColor}` }} />
                           <div>
                             <h4 style={{ margin: '0 0 5px 0', fontSize: '1.2rem' }}>{link.title}</h4>
                             <p style={{ margin: 0, color: themeColor, fontSize: '0.9rem', cursor: 'pointer' }} onClick={() => window.open(link.short)}>{link.short}</p>
-                            <span style={{ fontSize: '0.7rem', color: '#475569' }}>CREATED: {link.date}</span>
                           </div>
                         </div>
                         <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '30px' }}>
                           <div>
                             <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{link.clicks}</div>
-                            <div style={{ fontSize: '0.6rem', color: '#64748b' }}>ENGAGEMENTS</div>
+                            <div style={{ fontSize: '0.6rem', color: '#64748b' }}>TOTAL CLICKS</div>
                           </div>
                           <button onClick={() => {
                             const updated = myLinks.filter(l => l.id !== link.id);
                             setMyLinks(updated);
                             localStorage.setItem('bx_links', JSON.stringify(updated));
-                          }} style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid #f43f5e', color: '#f43f5e', padding: '10px 15px', borderRadius: '10px', cursor: 'pointer' }}>ERASE</button>
+                          }} style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid #f43f5e', color: '#f43f5e', padding: '10px 15px', borderRadius: '10px', cursor: 'pointer' }}>REMOVE</button>
                         </div>
                       </div>
                     ))
@@ -376,46 +367,27 @@ export default function Home() {
 
             {/* VIEW: APPEARANCE */}
             {dashView === 'appearance' && (
-              <div className="animate-up" style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '30px' }}>
+              <div className="animate-up" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
                 <div style={{ ...glassEffect, padding: '40px', borderRadius: '30px' }}>
-                  <h3>UI Customization</h3>
-                  <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '40px' }}>Adjust the visual identity of your links.</p>
-                  
+                  <h3>Theme Customization</h3>
                   <div style={{ marginBottom: '30px' }}>
-                    <label style={{ display: 'block', marginBottom: '15px', fontSize: '0.8rem', color: '#94a3b8' }}>PRIMARY CORE COLOR</label>
+                    <label style={{ display: 'block', marginBottom: '15px', fontSize: '0.8rem', color: '#94a3b8' }}>PRIMARY COLOR</label>
                     <div style={{ display: 'flex', gap: '15px' }}>
-                      {['#00d2ff', '#a855f7', '#10b981', '#f59e0b', '#f43f5e', '#ffffff'].map(c => (
+                      {['#00d2ff', '#a855f7', '#10b981', '#f59e0b', '#f43f5e'].map(c => (
                         <div key={c} onClick={() => setThemeColor(c)} style={{ 
                           width: '45px', height: '45px', borderRadius: '12px', background: c, cursor: 'pointer',
-                          border: themeColor === c ? '3px solid white' : 'none', boxShadow: themeColor === c ? `0 0 15px ${c}` : 'none'
+                          border: themeColor === c ? '3px solid white' : 'none'
                         }}></div>
                       ))}
                     </div>
                   </div>
-
                   <div style={{ marginBottom: '30px' }}>
-                    <label style={{ display: 'block', marginBottom: '15px', fontSize: '0.8rem', color: '#94a3b8' }}>GLASS OPACITY: {Math.round(glassOpacity * 100)}%</label>
+                    <label style={{ display: 'block', marginBottom: '15px', fontSize: '0.8rem', color: '#94a3b8' }}>GLASS OPACITY ({Math.round(glassOpacity * 100)}%)</label>
                     <input type="range" min="0.1" max="1" step="0.1" value={glassOpacity} onChange={(e)=>setGlassOpacity(e.target.value)} style={{ width: '100%', accentColor: themeColor }} />
                   </div>
-
-                  <div style={{ padding: '20px', background: 'rgba(255,165,0,0.1)', border: '1px solid orange', borderRadius: '15px', color: 'orange', fontSize: '0.8rem' }}>
-                    ⚠️ High opacity improves readability on complex backgrounds.
-                  </div>
                 </div>
-
-                <div style={{ ...glassEffect, padding: '20px', borderRadius: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', border: `3px solid ${themeColor}` }}>
-                  {/* PREVIEW OF UNLOCK PAGE */}
-                  <div style={{ width: '300px', height: '550px', background: '#020617', borderRadius: '30px', border: '1px solid #1e293b', padding: '30px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ width: '60px', height: '60px', background: themeColor, borderRadius: '15px', margin: '40px auto 20px', boxShadow: `0 0 20px ${themeColor}` }}></div>
-                    <div style={{ width: '80%', height: '15px', background: '#1e293b', borderRadius: '5px', margin: '0 auto 10px' }}></div>
-                    <div style={{ width: '50%', height: '10px', background: '#1e293b', borderRadius: '5px', margin: '0 auto 40px' }}></div>
-                    <div style={{ ...glassEffect, padding: '20px', borderRadius: '20px', marginBottom: '20px' }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#1e293b', margin: '0 auto 10px' }}></div>
-                      <div style={{ width: '100%', height: '8px', background: '#1e293b', borderRadius: '4px' }}></div>
-                    </div>
-                    <button style={{ width: '100%', padding: '15px', background: themeColor, border: 'none', borderRadius: '10px', color: 'white', fontWeight: 'bold' }}>UNLOCK CONTENT</button>
-                    <div style={{ marginTop: '20px', color: '#475569', fontSize: '0.6rem' }}>PROTECTED BY BX-SYSTEMS</div>
-                  </div>
+                <div style={{ ...glassEffect, borderRadius: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', padding: '20px' }}>
+                  <p style={{ color: '#475569', fontSize: '0.8rem' }}>PREVIEW MODE ACTIVE</p>
                 </div>
               </div>
             )}
@@ -426,61 +398,42 @@ export default function Home() {
       {/* --- MASTER OWNER PANEL --- */}
       {step === 'owner' && (
         <div className="animate-up" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-          <div style={{ ...glassEffect, padding: '50px', borderRadius: '40px', width: '450px', textAlign: 'center', border: '2px solid #f43f5e' }}>
-            <h1 style={{ color: '#f43f5e', fontSize: '2.5rem', marginBottom: '10px' }}>ADMIN AUTH</h1>
-            <p style={{ color: '#64748b', marginBottom: '40px' }}>Master Override Authorization Required</p>
-            <input type="password" placeholder="••••" onChange={(e)=>setOwnerPass(e.target.value)} style={{ width: '100%', padding: '20px', background: '#0f172a', border: '1px solid #f43f5e', borderRadius: '15px', color: 'white', fontSize: '2rem', textAlign: 'center', letterSpacing: '10px', marginBottom: '30px' }} />
-            <button onClick={() => { if(ownerPass === "2706") setStep('owner-panel'); else showNotify("❌ WRONG MASTER PIN"); }} style={{ width: '100%', padding: '18px', borderRadius: '15px', border: 'none', background: '#f43f5e', color: 'white', fontWeight: 'bold' }}>ACCESS MASTER CORE</button>
-            <button onClick={() => setStep('start')} style={{ marginTop: '20px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>Abort Mission</button>
+          <div style={{ ...glassEffect, padding: '50px', borderRadius: '40px', width: '450px', textAlign: 'center' }}>
+            <h1 style={{ color: '#f43f5e', fontSize: '2.5rem' }}>ADMIN LOGIN</h1>
+            <input type="password" placeholder="ENTER MASTER PIN" onChange={(e)=>setOwnerPass(e.target.value)} style={{ width: '100%', padding: '20px', background: '#0f172a', border: '1px solid #f43f5e', borderRadius: '15px', color: 'white', fontSize: '1.5rem', textAlign: 'center', marginBottom: '30px' }} />
+            <button onClick={() => { if(ownerPass === "2706") setStep('owner-panel'); else showNotify("❌ WRONG PIN"); }} style={{ width: '100%', padding: '18px', borderRadius: '15px', border: 'none', background: '#f43f5e', color: 'white', fontWeight: 'bold' }}>UNLOCK CONSOLE</button>
+            <button onClick={() => setStep('start')} style={{ marginTop: '20px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>Cancel</button>
           </div>
         </div>
       )}
 
       {step === 'owner-panel' && (
         <div className="animate-up" style={{ padding: '60px', maxWidth: '1400px', margin: 'auto' }}>
-          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '60px' }}>
-            <h1 style={{ color: '#f43f5e', fontSize: '3rem' }}>MASTER <span style={{ color: 'white' }}>CONSOLE</span></h1>
-            <button onClick={() => setStep('start')} style={{ padding: '15px 30px', background: '#334155', border: 'none', borderRadius: '12px', color: 'white', fontWeight: 'bold' }}>EXIT TERMINAL</button>
+          <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '60px' }}>
+            <h1 style={{ color: '#f43f5e' }}>MASTER OVERRIDE</h1>
+            <button onClick={() => setStep('start')} style={{ padding: '15px 30px', background: '#334155', border: 'none', borderRadius: '12px', color: 'white', fontWeight: 'bold' }}>EXIT</button>
           </header>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '25px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '25px' }}>
             <div style={{ ...glassEffect, padding: '30px', borderRadius: '25px', gridColumn: 'span 2' }}>
-              <h4 style={{ color: '#38bdf8', marginTop: 0 }}>REGISTERED NODES (USERS)</h4>
-              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead><tr style={{ textAlign: 'left', color: '#475569', fontSize: '0.8rem' }}><th>EMAIL</th><th>PIN</th><th>JOINED</th></tr></thead>
-                  <tbody>
-                    {userAccounts.map((u, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #1e293b' }}>
-                        <td style={{ padding: '15px 0', fontSize: '0.9rem' }}>{u.email}</td>
-                        <td style={{ padding: '15px 0', fontFamily: 'monospace', color: '#10b981' }}>{u.password}</td>
-                        <td style={{ padding: '15px 0', fontSize: '0.8rem', color: '#64748b' }}>{u.joined}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <h4 style={{ color: '#38bdf8' }}>REGISTERED USERS</h4>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead><tr style={{ textAlign: 'left', color: '#475569' }}><th>EMAIL</th><th>PIN</th><th>DATE</th></tr></thead>
+                <tbody>
+                  {userAccounts.map((u, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #1e293b' }}>
+                      <td style={{ padding: '15px 0' }}>{u.email}</td>
+                      <td style={{ padding: '15px 0', color: '#10b981' }}>{u.password}</td>
+                      <td style={{ padding: '15px 0', fontSize: '0.8rem', color: '#64748b' }}>{u.joined}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
             <div style={{ ...glassEffect, padding: '30px', borderRadius: '25px' }}>
-              <h4 style={{ color: '#f59e0b', marginTop: 0 }}>LIVE MESSAGES</h4>
-              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {userMessages.map((m, i) => (
-                  <div key={i} style={{ padding: '15px', background: '#020617', borderRadius: '12px', marginBottom: '10px', border: '1px solid #1e293b' }}>
-                    <div style={{ fontSize: '0.7rem', color: '#f59e0b', fontWeight: 'bold' }}>{m.user}</div>
-                    <p style={{ margin: '5px 0', fontSize: '0.9rem' }}>{m.text}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ ...glassEffect, padding: '30px', borderRadius: '25px' }}>
-              <h4 style={{ color: '#f43f5e', marginTop: 0 }}>SYSTEM OVERRIDE</h4>
-              <button onClick={() => { if(confirm("WIPE EVERYTHING?")) { localStorage.clear(); window.location.reload(); } }} style={{ width: '100%', padding: '15px', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid #f43f5e', color: '#f43f5e', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '15px' }}>NUKE DATABASE</button>
-              <div style={{ background: '#020617', padding: '20px', borderRadius: '15px' }}>
-                <p style={{ margin: 0, fontSize: '0.7rem', color: '#475569' }}>CPU USAGE: 12%</p>
-                <p style={{ margin: '10px 0 0 0', fontSize: '0.7rem', color: '#475569' }}>API LATENCY: 42ms</p>
-              </div>
+              <h4 style={{ color: '#f43f5e' }}>DANGER ZONE</h4>
+              <button onClick={() => { if(confirm("DELETE EVERYTHING?")) { localStorage.clear(); window.location.reload(); } }} style={{ width: '100%', padding: '15px', background: '#f43f5e', color: 'white', borderRadius: '12px', fontWeight: 'bold', border: 'none' }}>WIPE ALL DATA</button>
             </div>
           </div>
         </div>
@@ -491,10 +444,8 @@ export default function Home() {
         <div style={{ 
           position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)', 
           padding: '18px 35px', borderRadius: '100px', background: '#1e293b', border: `1px solid ${themeColor}`,
-          color: 'white', fontWeight: 'bold', fontSize: '0.9rem', boxShadow: `0 10px 30px rgba(0,0,0,0.5)`,
-          zIndex: 10000, display: 'flex', alignItems: 'center', gap: '15px', animation: 'slideUp 0.3s ease-out'
+          color: 'white', fontWeight: 'bold', animation: 'slideUp 0.3s ease-out', zIndex: 10000
         }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: themeColor, boxShadow: `0 0 10px ${themeColor}` }}></div>
           {message}
         </div>
       )}
