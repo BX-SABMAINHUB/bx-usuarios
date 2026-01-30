@@ -1,133 +1,142 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 
-export default function CheckpointPage() {
+export default function Checkpoint() {
   const router = useRouter();
   const { id } = router.query;
-  const [linkData, setLinkData] = useState(null);
-  const [unlocked, setUnlocked] = useState(false);
+  const [targetUrl, setTargetUrl] = useState(null);
+  const [timer, setTimer] = useState(5); // 5 segundos de espera
+  const [canUnlock, setCanUnlock] = useState(false);
 
   useEffect(() => {
     if (id) {
+      // 1. Buscamos el link en tu MongoDB
       fetch(`/api/links?id=${id}`)
-        .then((res) => res.json())
-        .then((data) => setLinkData(data))
-        .catch((err) => console.error("Error cargando el link", err));
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.url) setTargetUrl(data.url);
+        })
+        .catch(err => console.error("Error:", err));
     }
   }, [id]);
 
-  const handleUnlock = () => {
-    if (linkData && linkData.url) {
-      window.location.href = linkData.url;
+  useEffect(() => {
+    // 2. Contador para activar el botón
+    if (timer > 0) {
+      const countdown = setInterval(() => setTimer(timer - 1), 1000);
+      return () => clearInterval(countdown);
+    } else {
+      setCanUnlock(true);
     }
+  }, [timer]);
+
+  const handleRedirect = () => {
+    if (targetUrl) window.location.href = targetUrl;
   };
 
-  if (!linkData) return <div style={styles.container}><p style={{color: 'white'}}>Cargando Checkpoint...</p></div>;
-
   return (
-    <div style={styles.container}>
+    <div style={styles.body}>
+      <div style={styles.stars}></div>
       <div style={styles.card}>
+        <img src="https://i.ibb.co/vzPRm9M/alexgaming.png" style={styles.avatar} alt="Avatar" />
         <h1 style={styles.title}>Alexgaming</h1>
-        <h2 style={styles.subtitle}>CHECKPOINT 1</h2>
+        <p style={styles.checkpointText}>CHECKPOINT 1</p>
         
-        <div style={styles.iconBox}>
-          <div style={styles.youtubeIcon}>▶</div>
-        </div>
-
-        <div style={styles.taskCard}>
-          <p style={styles.taskTitle}>CHECKPOINT 1</p>
-          <p style={styles.taskDesc}>Complete the actions and unlock the link</p>
+        <div style={styles.taskBox}>
+          <p style={styles.instruction}>Complete the actions to unlock the link</p>
+          <div style={styles.actionRow}>
+            <span style={styles.actionIcon}>📁</span>
+            <span style={styles.actionName}>DESCARGA EL MEJOR NAVEGADOR</span>
+            <span style={styles.check}>✓</span>
+          </div>
           
-          <button style={styles.actionButton} onClick={() => setUnlocked(true)}>
-            DESCARGA EL MEJOR NAVEGADOR DE JUEGOS
-          </button>
-
-          <p style={styles.progressText}>UNLOCK PROGRESS: {unlocked ? '1/1' : '0/1'}</p>
+          <p style={styles.progress}>UNLOCK PROGRESS: {canUnlock ? '1/1' : '0/1'}</p>
           
           <button 
-            style={unlocked ? styles.unlockActive : styles.unlockDisabled} 
-            disabled={!unlocked}
-            onClick={handleUnlock}
+            onClick={handleRedirect}
+            disabled={!canUnlock}
+            style={canUnlock ? styles.btnActive : styles.btnDisabled}
           >
-            {unlocked ? 'UNLOCK CONTENT' : '🔒 UNLOCK CONTENT'}
+            {canUnlock ? 'UNLOCK CONTENT' : `WAIT ${timer}s...`}
           </button>
         </div>
         
-        <p style={styles.footer}>Support Content Creators: The content is brought to you for FREE thanks to the ads on this page.</p>
+        <p style={styles.footer}>Powered by Bx-Usuarios • We Monetize</p>
       </div>
     </div>
   );
 }
 
 const styles = {
-  container: {
-    backgroundColor: '#0b0e14',
-    minHeight: '100vh',
+  body: {
+    backgroundColor: '#0a0b10',
+    height: '100vh',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    fontFamily: 'sans-serif',
-    color: 'white',
-    padding: '20px'
+    fontFamily: '"Inter", sans-serif',
+    overflow: 'hidden',
+    position: 'relative'
+  },
+  stars: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    backgroundImage: 'radial-gradient(white, rgba(255,255,255,0.2) 2px, transparent 40px)',
+    backgroundSize: '100px 100px',
+    opacity: 0.1
   },
   card: {
-    width: '100%',
+    backgroundColor: 'rgba(20, 22, 31, 0.95)',
+    padding: '30px',
+    borderRadius: '20px',
+    border: '1px solid #2d2f3a',
+    textAlign: 'center',
+    width: '90%',
     maxWidth: '400px',
-    textAlign: 'center'
+    zIndex: 10,
+    boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
   },
-  title: { fontSize: '24px', fontWeight: 'bold', marginBottom: '5px' },
-  subtitle: { fontSize: '14px', color: '#ccc', marginBottom: '20px' },
-  iconBox: { marginBottom: '20px' },
-  youtubeIcon: {
-    backgroundColor: '#3e314d',
-    width: '60px',
-    height: '40px',
-    margin: '0 auto',
-    borderRadius: '10px',
+  avatar: { width: '80px', borderRadius: '15px', marginBottom: '15px' },
+  title: { color: 'white', fontSize: '22px', margin: '0' },
+  checkpointText: { color: '#888', fontSize: '12px', marginBottom: '20px' },
+  taskBox: {
+    backgroundColor: '#161822',
+    padding: '20px',
+    borderRadius: '15px',
+    border: '1px solid #2d2f3a'
+  },
+  instruction: { color: '#ccc', fontSize: '13px', marginBottom: '15px' },
+  actionRow: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '20px'
-  },
-  taskCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: '15px',
-    padding: '20px',
-    border: '1px solid rgba(255,255,255,0.1)'
-  },
-  taskTitle: { fontWeight: 'bold', marginBottom: '5px' },
-  taskDesc: { fontSize: '12px', color: '#aaa', marginBottom: '20px' },
-  actionButton: {
-    width: '100%',
-    backgroundColor: 'transparent',
-    border: '1px solid white',
-    color: 'white',
-    padding: '12px',
+    justifyContent: 'space-between',
+    padding: '10px',
+    border: '1px solid #333',
     borderRadius: '8px',
-    fontSize: '11px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
     marginBottom: '15px'
   },
-  progressText: { fontSize: '11px', marginBottom: '15px' },
-  unlockDisabled: {
+  actionName: { fontSize: '11px', fontWeight: 'bold' },
+  progress: { fontSize: '10px', color: '#666', marginBottom: '15px' },
+  btnDisabled: {
     width: '100%',
-    backgroundColor: '#555',
-    color: '#888',
     padding: '12px',
     borderRadius: '8px',
     border: 'none',
+    backgroundColor: '#333',
+    color: '#666',
     fontWeight: 'bold'
   },
-  unlockActive: {
+  btnActive: {
     width: '100%',
-    backgroundColor: '#fff',
-    color: '#000',
     padding: '12px',
     borderRadius: '8px',
     border: 'none',
+    backgroundColor: '#ffffff',
+    color: '#000',
     fontWeight: 'bold',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    boxShadow: '0 0 15px rgba(255,255,255,0.3)'
   },
-  footer: { fontSize: '10px', color: '#666', marginTop: '20px', lineHeight: '1.4' }
+  footer: { color: '#444', fontSize: '10px', marginTop: '20px' }
 };
