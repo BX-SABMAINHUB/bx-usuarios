@@ -1,27 +1,27 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 /**
- * BX - PREMIUM CONTENT LOCKING ARCHITECTURE
- * VERSION: 15.4.0
- * DESIGN: LOOTLABS ELITE (MODERN SLATE/INDIGO)
- * FLOW: GMAIL -> OTP -> PIN -> LOGIN
+ * BX - ELITE CONTENT LOCKING & DISTRIBUTION ARCHITECTURE
+ * VERSION: 18.0.0
+ * STYLE: LOOTLABS PREMIUM (SLATE / INDIGO / GLASSMORTPHISM)
+ * FLOW: GMAIL -> OTP -> PIN -> LOGIN -> DASHBOARD
  */
 
-export default function BXPlatform() {
-  // --- [SYSTEM STATE ENGINE] ---
-  const [view, setView] = useState('landing'); // landing, register, otp_verify, pin_setup, login, dashboard
-  const [loading, setLoading] = useState(false);
+export default function BXApplication() {
+  // --- [SYSTEM NAVIGATION] ---
+  const [view, setView] = useState('landing'); 
   const [activeTab, setActiveTab] = useState('create');
+  const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState({ show: false, msg: '', type: 'info' });
 
-  // --- [IDENTITY MANAGEMENT] ---
+  // --- [IDENTITY & SECURITY] ---
   const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
   const [otpInput, setOtpInput] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState(null);
+  const [serverOtp, setServerOtp] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
 
-  // --- [GENERATOR CORE] ---
+  // --- [GENERATOR DATA] ---
   const [title, setTitle] = useState('');
   const [target, setTarget] = useState('');
   const [thumbnail, setThumbnail] = useState('');
@@ -29,17 +29,17 @@ export default function BXPlatform() {
   const [hops, setHops] = useState(['', '', '']);
   const [links, setLinks] = useState([]);
   
-  // --- [ADVANCED CONFIGURATION] ---
-  const [isMaintenance, setIsMaintenance] = useState(false);
+  // --- [SYSTEM CONFIGURATION] ---
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [defaultExpiry, setDefaultExpiry] = useState('never');
-  const [stealthMode, setStealthMode] = useState(false);
-  const [linkAlias, setLinkAlias] = useState('');
-  const [requireCaptcha, setRequireCaptcha] = useState(true);
+  const [antiBotLevel, setAntiBotLevel] = useState('Standard');
+  const [monetizationType, setMonetizationType] = useState('Mixed');
+  const [customDomain, setCustomDomain] = useState('bx.link');
 
-  // --- [DESIGN TOKENS] ---
+  // --- [DESIGN SPECIFICATIONS] ---
   const theme = {
-    primary: '#6366f1', // Indigo Vibrant
-    primaryHover: '#4f46e5',
+    primary: '#6366f1',
+    primaryDark: '#4f46e5',
     bg: '#0f172a',
     card: '#1e293b',
     cardAlt: '#334155',
@@ -48,17 +48,18 @@ export default function BXPlatform() {
     muted: '#94a3b8',
     success: '#22c55e',
     error: '#f43f5e',
-    shadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+    accent: '#818cf8',
+    glow: '0 0 20px rgba(99, 102, 241, 0.3)'
   };
 
-  // --- [LIFECYCLE & PERSISTENCE] ---
+  // --- [CORE ENGINE INITIALIZATION] ---
   useEffect(() => {
-    const savedLinks = localStorage.getItem('bx_vault_v15');
+    const savedLinks = localStorage.getItem('bx_vault_data');
     if (savedLinks) setLinks(JSON.parse(savedLinks));
 
-    const session = localStorage.getItem('bx_active_session');
-    if (session) {
-      setCurrentUser(JSON.parse(session));
+    const activeSession = localStorage.getItem('bx_session_token');
+    if (activeSession) {
+      setCurrentUser(JSON.parse(activeSession));
       setView('dashboard');
     }
   }, []);
@@ -68,198 +69,196 @@ export default function BXPlatform() {
     setTimeout(() => setNotification({ show: false, msg: '', type: 'info' }), 4500);
   };
 
-  // --- [REGISTRATION PROTOCOL] ---
-  const handleRegisterEmail = async () => {
+  // --- [REGISTRATION PROTOCOL: EMAIL PHASE] ---
+  const initiateRegistration = async () => {
     if (!email.includes('@')) return notify("Invalid email format", "error");
     
     setLoading(true);
-    // Simulate API Call to send Gmail OTP
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(code);
+    // Simulation of SMTP dispatch (This would be your backend call)
+    const mockOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setServerOtp(mockOtp);
 
-    // LOGGING TO CONSOLE FOR DEV - In production, this goes to Gmail API
-    console.log(`[BX SERVER] Sending OTP ${code} to ${email}`);
-
+    console.log(`%c [BX MAIL ENGINE] Code ${mockOtp} dispatched to ${email}`, `color: ${theme.primary}; font-weight: bold`);
+    
     setTimeout(() => {
       setLoading(false);
       setView('otp_verify');
-      notify("Verification code dispatched to Gmail", "success");
-    }, 1200);
+      notify("OTP sent to your Gmail inbox", "success");
+    }, 1500);
   };
 
-  const handleVerifyOtp = () => {
-    if (otpInput === generatedOtp) {
+  // --- [REGISTRATION PROTOCOL: OTP PHASE] ---
+  const verifySecurityCode = () => {
+    if (otpInput === serverOtp) {
       setView('pin_setup');
-      notify("Identity verified. Setup your security PIN.");
+      notify("Identity verified. Setup your Master PIN.");
     } else {
-      notify("Invalid code. Check your Gmail inbox.", "error");
+      notify("Invalid security code", "error");
     }
   };
 
-  const handlePinSetup = () => {
-    if (pin.length < 4) return notify("PIN must be 4+ digits", "error");
+  // --- [REGISTRATION PROTOCOL: PIN PHASE] ---
+  const finalizeRegistration = () => {
+    if (pin.length < 4) return notify("PIN must be at least 4 digits", "error");
     
-    const operators = JSON.parse(localStorage.getItem('bx_operators') || '[]');
-    if (operators.find(o => o.email === email)) {
-      notify("User already exists", "error");
+    const users = JSON.parse(localStorage.getItem('bx_database_users') || '[]');
+    if (users.find(u => u.email === email)) {
+      notify("Email already exists", "error");
       setView('landing');
       return;
     }
 
-    operators.push({ email, pin });
-    localStorage.setItem('bx_operators', JSON.stringify(operators));
+    users.push({ email, pin, created: new Date().toISOString() });
+    localStorage.setItem('bx_database_users', JSON.stringify(users));
     
-    notify("Account provisioned. Please log in.", "success");
-    setView('landing'); // Return to Home as requested
+    notify("Account ready. Please login.", "success");
+    setView('landing'); // Return to Home
   };
 
-  // --- [LOGIN PROTOCOL] ---
-  const handleLogin = () => {
-    const operators = JSON.parse(localStorage.getItem('bx_operators') || '[]');
-    const user = operators.find(o => o.email === email && o.pin === pin);
+  // --- [LOGIN SYSTEM] ---
+  const executeLogin = () => {
+    const users = JSON.parse(localStorage.getItem('bx_database_users') || '[]');
+    const sessionUser = users.find(u => u.email === email && u.pin === pin);
 
-    if (user) {
-      setCurrentUser(user);
-      localStorage.setItem('bx_active_session', JSON.stringify(user));
+    if (sessionUser) {
+      setCurrentUser(sessionUser);
+      localStorage.setItem('bx_session_token', JSON.stringify(sessionUser));
       setView('dashboard');
-      notify("Authorized Access Granted", "success");
+      notify("Welcome back, Operator", "success");
     } else {
-      notify("Invalid Credentials", "error");
+      notify("Invalid credentials", "error");
     }
   };
 
-  // --- [DEPLOYMENT ENGINE] ---
-  const deployLinkNode = () => {
-    if (!title || !target) return notify("Primary fields missing", "error");
+  // --- [LINK GENERATOR LOGIC] ---
+  const deployNode = () => {
+    if (!title || !target) return notify("Missing required fields", "error");
     
     setLoading(true);
     setTimeout(() => {
-      const payload = {
-        t: title,
-        d: target,
-        i: thumbnail || 'https://via.placeholder.com/300x200?text=BX+Asset',
-        s: hops.slice(0, layers).filter(h => h !== ''),
-        m: isMaintenance
+      const config = {
+        title,
+        target,
+        thumb: thumbnail || 'https://via.placeholder.com/300',
+        steps: hops.slice(0, layers).filter(h => h !== ''),
+        maintenance: maintenanceMode,
+        domain: customDomain
       };
 
-      const encrypted = btoa(JSON.stringify(payload));
-      const finalUrl = `${window.location.origin}/unlock?bx_id=${encrypted}`;
-
-      const newNode = {
+      const hash = btoa(JSON.stringify(config));
+      const generatedLink = {
         id: Math.random().toString(36).substr(2, 6).toUpperCase(),
         title,
-        url: finalUrl,
+        url: `${window.location.origin}/access?node=${hash}`,
         layers,
-        clicks: 0,
-        created: new Date().toLocaleDateString(),
-        expiry: defaultExpiry
+        clicks: Math.floor(Math.random() * 5), // Simulating initial data
+        status: 'ACTIVE',
+        date: new Date().toLocaleDateString()
       };
 
-      const updated = [newNode, ...links];
-      setLinks(updated);
-      localStorage.setItem('bx_vault_v15', JSON.stringify(updated));
+      const updatedVault = [generatedLink, ...links];
+      setLinks(updatedVault);
+      localStorage.setItem('bx_vault_data', JSON.stringify(updatedVault));
       
-      // Reset Form
       setTitle(''); setTarget(''); setThumbnail(''); setHops(['', '', '']);
       setLoading(false);
-      notify("Link node deployed successfully", "success");
-    }, 1500);
+      notify("Link node deployed to the grid", "success");
+    }, 1800);
   };
 
-  const deleteNode = (id) => {
-    const filtered = links.filter(l => l.id !== id);
-    setLinks(filtered);
-    localStorage.setItem('bx_vault_v15', JSON.stringify(filtered));
-    notify("Node purged from vault", "info");
+  const purgeNode = (id) => {
+    const updated = links.filter(l => l.id !== id);
+    setLinks(updated);
+    localStorage.setItem('bx_vault_data', JSON.stringify(updated));
+    notify("Node purged successfully");
   };
 
-  // --- [STYLES] ---
-  const inputBase = {
+  // --- [STYLING COMPONENTS] ---
+  const inputStyle = {
     width: '100%',
     padding: '16px',
     background: '#0f172a',
     border: `1px solid ${theme.border}`,
-    borderRadius: '12px',
+    borderRadius: '14px',
     color: 'white',
     fontSize: '15px',
     outline: 'none',
-    transition: 'border-color 0.2s ease',
-    marginBottom: '16px'
+    transition: '0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    marginBottom: '20px'
   };
 
-  const buttonBase = (bgColor = theme.primary) => ({
+  const primaryButtonStyle = (bg = theme.primary) => ({
     width: '100%',
     padding: '16px',
-    background: bgColor,
+    background: bg,
     color: 'white',
     border: 'none',
-    borderRadius: '12px',
-    fontWeight: '700',
+    borderRadius: '14px',
+    fontWeight: '800',
     fontSize: '15px',
     cursor: 'pointer',
-    transition: 'transform 0.1s active',
-    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+    transition: '0.2s ease',
+    boxShadow: bg === theme.primary ? theme.glow : 'none'
   });
 
-  // --- [VIEW: PUBLIC INTERFACES] ---
+  // --- [VIEW: AUTHENTICATION INTERFACES] ---
   if (view !== 'dashboard') {
     return (
       <div style={{ background: theme.bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: '"Inter", sans-serif' }}>
         <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-          .auth-card { background: ${theme.card}; padding: 48px; border-radius: 32px; width: 100%; maxWidth: 460px; border: 1px solid ${theme.border}; box-shadow: ${theme.shadow}; }
-          .logo { font-size: 56px; font-weight: 800; color: ${theme.primary}; margin: 0; letter-spacing: -3px; }
-          .fade-in { animation: fadeIn 0.4s ease-out forwards; }
-          @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+          .auth-card { background: ${theme.card}; padding: 50px; border-radius: 35px; width: 100%; maxWidth: 480px; border: 1px solid ${theme.border}; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); }
+          .logo-text { font-size: 64px; font-weight: 900; color: ${theme.primary}; margin: 0; letter-spacing: -4px; text-shadow: ${theme.glow}; }
+          .fade-up { animation: fadeUp 0.5s ease-out forwards; }
+          @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         `}</style>
         
-        <div className="auth-card fade-in">
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <h1 className="logo">BX</h1>
-            <p style={{ color: theme.muted, fontWeight: '600' }}>{view === 'landing' ? 'Advanced Distribution Platform' : 'Secure Authorization'}</p>
+        <div className="auth-card fade-up">
+          <div style={{ textAlign: 'center', marginBottom: '45px' }}>
+            <h1 className="logo-text">BX</h1>
+            <p style={{ color: theme.muted, fontWeight: '600', fontSize: '14px' }}>ENTERPRISE ASSET PROTECTION</p>
           </div>
 
           {view === 'landing' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <button style={buttonBase()} onClick={() => setView('register')}>Create Account</button>
-              <button style={{ ...buttonBase('transparent'), border: `2px solid ${theme.border}` }} onClick={() => setView('login')}>Operator Login</button>
-              <p style={{ fontSize: '12px', color: theme.muted, textAlign: 'center', marginTop: '20px' }}>Protected by BX Encryption Engine v15</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <button style={primaryButtonStyle()} onClick={() => setView('register')}>Create New Account</button>
+              <button style={{ ...primaryButtonStyle('transparent'), border: `2px solid ${theme.border}` }} onClick={() => setView('login')}>Existing Operator Login</button>
             </div>
           )}
 
           {view === 'register' && (
-            <div className="fade-in">
-              <label style={{ fontSize: '13px', color: theme.muted, marginBottom: '8px', display: 'block' }}>GMAIL ACCOUNT</label>
-              <input style={inputBase} type="email" placeholder="example@gmail.com" onChange={e => setEmail(e.target.value)} />
-              <button style={buttonBase()} onClick={handleRegisterEmail} disabled={loading}>{loading ? 'Dispatched Code...' : 'Send Verification'}</button>
-              <p style={{ textAlign: 'center', color: theme.muted, fontSize: '14px', marginTop: '24px', cursor: 'pointer' }} onClick={() => setView('landing')}>Cancel</p>
+            <div className="fade-up">
+              <label style={{ fontSize: '12px', color: theme.muted, marginBottom: '8px', display: 'block', fontWeight: 'bold' }}>GMAIL ADDRESS</label>
+              <input style={inputStyle} type="email" placeholder="operator@gmail.com" onChange={e => setEmail(e.target.value)} />
+              <button style={primaryButtonStyle()} onClick={initiateRegistration} disabled={loading}>{loading ? 'Verifying Gmail...' : 'Send Verification Code'}</button>
+              <p style={{ textAlign: 'center', color: theme.muted, fontSize: '14px', marginTop: '30px', cursor: 'pointer' }} onClick={() => setView('landing')}>Abort Registration</p>
             </div>
           )}
 
           {view === 'otp_verify' && (
-            <div className="fade-in">
-              <h3 style={{ marginBottom: '10px' }}>Enter Code</h3>
-              <p style={{ color: theme.muted, fontSize: '14px', marginBottom: '24px' }}>Input the 6-digit code sent to your Gmail.</p>
-              <input style={{ ...inputBase, textAlign: 'center', letterSpacing: '8px', fontSize: '24px' }} maxLength={6} onChange={e => setOtpInput(e.target.value)} />
-              <button style={buttonBase()} onClick={handleVerifyOtp}>Verify Identity</button>
+            <div className="fade-up">
+              <h3 style={{ marginBottom: '10px' }}>Verify Identity</h3>
+              <p style={{ color: theme.muted, fontSize: '14px', marginBottom: '25px' }}>Check your Gmail. We've sent a 6-digit verification code.</p>
+              <input style={{ ...inputStyle, textAlign: 'center', letterSpacing: '10px', fontSize: '28px' }} maxLength={6} onChange={e => setOtpInput(e.target.value)} />
+              <button style={primaryButtonStyle()} onClick={verifySecurityCode}>Confirm Identity</button>
             </div>
           )}
 
           {view === 'pin_setup' && (
-            <div className="fade-in">
-              <h3 style={{ marginBottom: '10px' }}>Secure Your Account</h3>
-              <p style={{ color: theme.muted, fontSize: '14px', marginBottom: '24px' }}>Create a Master PIN for future logins.</p>
-              <input style={{ ...inputBase, textAlign: 'center' }} type="password" placeholder="****" maxLength={8} onChange={e => setPin(e.target.value)} />
-              <button style={buttonBase()} onClick={handlePinSetup}>Finish Registration</button>
+            <div className="fade-up">
+              <h3 style={{ marginBottom: '10px' }}>Setup Master PIN</h3>
+              <p style={{ color: theme.muted, fontSize: '14px', marginBottom: '25px' }}>Choose a secure 4-8 digit PIN for access.</p>
+              <input style={{ ...inputStyle, textAlign: 'center' }} type="password" placeholder="****" onChange={e => setPin(e.target.value)} />
+              <button style={primaryButtonStyle()} onClick={finalizeRegistration}>Deploy Account</button>
             </div>
           )}
 
           {view === 'login' && (
-            <div className="fade-in">
-              <input style={inputBase} placeholder="Gmail" onChange={e => setEmail(e.target.value)} />
-              <input style={inputBase} type="password" placeholder="Master PIN" onChange={e => setPin(e.target.value)} />
-              <button style={buttonBase()} onClick={handleLogin}>Authorize</button>
-              <p style={{ textAlign: 'center', color: theme.muted, fontSize: '14px', marginTop: '24px', cursor: 'pointer' }} onClick={() => setView('landing')}>Back</p>
+            <div className="fade-up">
+              <input style={inputStyle} placeholder="Gmail" onChange={e => setEmail(e.target.value)} />
+              <input style={inputStyle} type="password" placeholder="Master PIN" onChange={e => setPin(e.target.value)} />
+              <button style={primaryButtonStyle()} onClick={executeLogin}>Authorize Entry</button>
+              <p style={{ textAlign: 'center', color: theme.muted, fontSize: '14px', marginTop: '30px', cursor: 'pointer' }} onClick={() => setView('landing')}>Return to Home</p>
             </div>
           )}
         </div>
@@ -267,75 +266,74 @@ export default function BXPlatform() {
     );
   }
 
-  // --- [VIEW: DASHBOARD (LOOTLABS STYLE)] ---
+  // --- [VIEW: DASHBOARD (LOOTLABS ELITE)] ---
   return (
     <div style={{ background: theme.bg, minHeight: '100vh', display: 'flex', color: theme.text, fontFamily: '"Inter", sans-serif' }}>
       <style>{`
-        .sidebar-item { padding: 16px 24px; border-radius: 12px; cursor: pointer; color: ${theme.muted}; font-weight: 600; transition: all 0.2s; display: flex; align-items: center; gap: 12px; margin-bottom: 6px; border: none; background: transparent; width: 100%; text-align: left; }
-        .sidebar-item:hover { color: white; background: rgba(255,255,255,0.05); }
-        .sidebar-item.active { background: ${theme.primary}15; color: ${theme.primary}; }
-        .glass-card { background: ${theme.card}; border: 1px solid ${theme.border}; border-radius: 24px; padding: 32px; }
-        .table-row { transition: background 0.2s; }
-        .table-row:hover { background: rgba(255,255,255,0.02); }
-        .badge { padding: 4px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+        .nav-link { padding: 18px 25px; border-radius: 15px; cursor: pointer; color: ${theme.muted}; font-weight: 700; display: flex; align-items: center; gap: 15px; transition: 0.2s; border: none; background: transparent; width: 100%; text-align: left; }
+        .nav-link:hover { color: white; background: rgba(255,255,255,0.04); }
+        .nav-link.active { background: ${theme.primary}15; color: ${theme.primary}; border-left: 4px solid ${theme.primary}; }
+        .content-card { background: ${theme.card}; border: 1px solid ${theme.border}; border-radius: 25px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .data-table tr { transition: background 0.2s; }
+        .data-table tr:hover { background: rgba(255,255,255,0.01); }
       `}</style>
 
-      {/* NAVIGATION BAR */}
-      <div style={{ width: '320px', borderRight: `1px solid ${theme.border}`, padding: '48px 24px', display: 'flex', flexDirection: 'column' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: '800', color: theme.primary, marginBottom: '48px', paddingLeft: '24px' }}>BX</h1>
+      {/* SIDEBAR NAVIGATION */}
+      <div style={{ width: '340px', borderRight: `1px solid ${theme.border}`, padding: '50px 30px', display: 'flex', flexDirection: 'column' }}>
+        <h1 style={{ fontSize: '40px', fontWeight: '900', color: theme.primary, marginBottom: '60px', paddingLeft: '25px', letterSpacing: '-2px' }}>BX</h1>
         
         <nav style={{ flex: 1 }}>
-          <button className={`sidebar-item ${activeTab === 'create' ? 'active' : ''}`} onClick={() => setActiveTab('create')}>New Link</button>
-          <button className={`sidebar-item ${activeTab === 'manage' ? 'active' : ''}`} onClick={() => setActiveTab('manage')}>Vault</button>
-          <button className={`sidebar-item ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}>Settings</button>
+          <button className={`nav-link ${activeTab === 'create' ? 'active' : ''}`} onClick={() => setActiveTab('create')}>Generate Link</button>
+          <button className={`nav-link ${activeTab === 'vault' ? 'active' : ''}`} onClick={() => setActiveTab('vault')}>Asset Vault</button>
+          <button className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Control Panel</button>
         </nav>
 
-        <div style={{ background: '#0f172a', padding: '24px', borderRadius: '20px', border: `1px solid ${theme.border}` }}>
-          <div style={{ fontSize: '11px', color: theme.muted, marginBottom: '6px', fontWeight: 'bold', letterSpacing: '1px' }}>LOGGED_IN_AS</div>
-          <div style={{ fontSize: '14px', fontWeight: '700', marginBottom: '16px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser.email}</div>
+        <div style={{ background: '#0f172a', padding: '25px', borderRadius: '25px', border: `1px solid ${theme.border}` }}>
+          <div style={{ fontSize: '10px', color: theme.muted, fontWeight: '900', letterSpacing: '2px', marginBottom: '8px' }}>AUTHORIZED_OPERATOR</div>
+          <div style={{ fontSize: '13px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser.email}</div>
           <button 
-            style={{ color: theme.error, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', padding: 0 }}
-            onClick={() => { localStorage.removeItem('bx_active_session'); window.location.reload(); }}
+            style={{ color: theme.error, background: 'none', border: 'none', cursor: 'pointer', fontWeight: '800', fontSize: '12px', marginTop: '15px', padding: 0 }}
+            onClick={() => { localStorage.removeItem('bx_session_token'); window.location.reload(); }}
           >Terminate Session</button>
         </div>
       </div>
 
-      {/* CONTENT ENGINE */}
-      <div style={{ flex: 1, padding: '64px', overflowY: 'auto' }}>
+      {/* MAIN ENGINE CONTENT */}
+      <div style={{ flex: 1, padding: '70px', overflowY: 'auto' }}>
         {activeTab === 'create' && (
-          <div className="fade-in" style={{ maxWidth: '960px' }}>
-            <h2 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '12px' }}>Deploy New Link Node</h2>
-            <p style={{ color: theme.muted, marginBottom: '48px' }}>Encrypt your content behind high-performance redirection layers.</p>
+          <div className="fade-up" style={{ maxWidth: '1000px' }}>
+            <h2 style={{ fontSize: '42px', fontWeight: '900', marginBottom: '15px', letterSpacing: '-1px' }}>New Asset Node</h2>
+            <p style={{ color: theme.muted, marginBottom: '50px', fontSize: '16px' }}>Configure security parameters and redirect protocols.</p>
 
-            <div className="glass-card">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+            <div className="content-card">
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '35px' }}>
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: '700', color: theme.muted, marginBottom: '10px', display: 'block' }}>ASSET TITLE</label>
-                  <input style={inputBase} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Exclusive Lightroom Presets" />
+                  <label style={{ fontSize: '12px', fontWeight: '800', color: theme.muted, marginBottom: '10px', display: 'block' }}>ASSET FILENAME</label>
+                  <input style={inputStyle} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Premium VFX Pack 2026" />
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: '700', color: theme.muted, marginBottom: '10px', display: 'block' }}>THUMBNAIL URL</label>
-                  <input style={inputBase} value={thumbnail} onChange={e => setThumbnail(e.target.value)} placeholder="https://..." />
+                  <label style={{ fontSize: '12px', fontWeight: '800', color: theme.muted, marginBottom: '10px', display: 'block' }}>COVER ART URL</label>
+                  <input style={inputStyle} value={thumbnail} onChange={e => setThumbnail(e.target.value)} placeholder="https://imgur.com/v1.png" />
                 </div>
               </div>
 
-              <label style={{ fontSize: '13px', fontWeight: '700', color: theme.muted, marginBottom: '10px', display: 'block' }}>DESTINATION TARGET</label>
-              <input style={inputBase} value={target} onChange={e => setTarget(e.target.value)} placeholder="https://drive.google.com/..." />
+              <label style={{ fontSize: '12px', fontWeight: '800', color: theme.muted, marginBottom: '10px', display: 'block' }}>LOCKED DESTINATION</label>
+              <input style={inputStyle} value={target} onChange={e => setTarget(e.target.value)} placeholder="https://mega.nz/file/..." />
 
-              <div style={{ background: theme.bg, padding: '32px', borderRadius: '20px', border: `1px solid ${theme.border}`, marginTop: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <div style={{ background: theme.bg, padding: '35px', borderRadius: '25px', border: `1px solid ${theme.border}`, marginTop: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                   <div>
-                    <h4 style={{ margin: 0 }}>Traffic Flow Security</h4>
-                    <p style={{ margin: 0, fontSize: '12px', color: theme.muted }}>Each layer adds a mandatory 30-second verification delay.</p>
+                    <h4 style={{ margin: 0, fontSize: '18px' }}>Security Redirects</h4>
+                    <p style={{ margin: '5px 0 0 0', fontSize: '13px', color: theme.muted }}>Verification layers between user and asset.</p>
                   </div>
                   <select 
                     value={layers} 
                     onChange={e => setLayers(parseInt(e.target.value))}
-                    style={{ background: theme.card, color: 'white', border: `1px solid ${theme.border}`, padding: '12px', borderRadius: '12px', fontWeight: 'bold' }}
+                    style={{ background: theme.card, color: 'white', border: `1px solid ${theme.border}`, padding: '12px 20px', borderRadius: '14px', fontWeight: 'bold' }}
                   >
-                    <option value="1">1 Verification Layer</option>
-                    <option value="2">2 Verification Layers</option>
-                    <option value="3">3 Verification Layers</option>
+                    <option value="1">1 Security Tier</option>
+                    <option value="2">2 Security Tiers</option>
+                    <option value="3">3 Security Tiers</option>
                   </select>
                 </div>
 
@@ -343,8 +341,8 @@ export default function BXPlatform() {
                   {Array.from({ length: layers }).map((_, i) => (
                     <input 
                       key={i} 
-                      style={{ ...inputBase, marginBottom: 0 }} 
-                      placeholder={`Security Step 0${i+1} URL`} 
+                      style={{ ...inputStyle, marginBottom: 0 }} 
+                      placeholder={`Hop 0${i+1} URL`} 
                       value={hops[i]} 
                       onChange={e => {
                         const h = [...hops]; h[i] = e.target.value; setHops(h);
@@ -355,59 +353,57 @@ export default function BXPlatform() {
               </div>
 
               <button 
-                style={{ ...buttonBase(), marginTop: '40px', height: '64px', fontSize: '16px' }}
-                onClick={deployLinkNode}
+                style={{ ...primaryButtonStyle(), marginTop: '45px', height: '65px', fontSize: '17px' }}
+                onClick={deployNode}
                 disabled={loading}
               >
-                {loading ? 'Encrypting Node...' : 'Initialize Link Deployment'}
+                {loading ? 'Initializing Encryption...' : 'Deploy Asset Node'}
               </button>
             </div>
           </div>
         )}
 
-        {activeTab === 'manage' && (
-          <div className="fade-in">
-            <h2 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '12px' }}>Asset Vault</h2>
-            <p style={{ color: theme.muted, marginBottom: '48px' }}>Manage and monitor your active distribution nodes.</p>
+        {activeTab === 'vault' && (
+          <div className="fade-up">
+            <h2 style={{ fontSize: '42px', fontWeight: '900', marginBottom: '15px' }}>Asset Vault</h2>
+            <p style={{ color: theme.muted, marginBottom: '50px' }}>Live monitoring of your distribution network.</p>
 
-            <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="content-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead style={{ background: 'rgba(255,255,255,0.02)' }}>
                   <tr style={{ textAlign: 'left' }}>
-                    <th style={{ padding: '24px', fontSize: '12px', color: theme.muted }}>NODE ID</th>
-                    <th style={{ padding: '24px', fontSize: '12px', color: theme.muted }}>ASSET TITLE</th>
-                    <th style={{ padding: '24px', fontSize: '12px', color: theme.muted }}>SECURITY</th>
-                    <th style={{ padding: '24px', fontSize: '12px', color: theme.muted }}>DATE</th>
-                    <th style={{ padding: '24px', fontSize: '12px', color: theme.muted }}>ACTIONS</th>
+                    <th style={{ padding: '25px', fontSize: '11px', color: theme.muted, letterSpacing: '1px' }}>NODE_ID</th>
+                    <th style={{ padding: '25px', fontSize: '11px', color: theme.muted, letterSpacing: '1px' }}>ASSET_NAME</th>
+                    <th style={{ padding: '25px', fontSize: '11px', color: theme.muted, letterSpacing: '1px' }}>SECURITY</th>
+                    <th style={{ padding: '25px', fontSize: '11px', color: theme.muted, letterSpacing: '1px' }}>TRAFFIC</th>
+                    <th style={{ padding: '25px', fontSize: '11px', color: theme.muted, letterSpacing: '1px' }}>CONTROL</th>
                   </tr>
                 </thead>
                 <tbody>
                   {links.map(node => (
-                    <tr key={node.id} className="table-row">
-                      <td style={{ padding: '24px', fontWeight: '800', color: theme.primary }}>#{node.id}</td>
-                      <td style={{ padding: '24px', fontWeight: '600' }}>{node.title}</td>
-                      <td style={{ padding: '24px' }}>
-                        <span className="badge" style={{ background: `${theme.primary}20`, color: theme.primary }}>
-                          {node.layers} LAYERS
+                    <tr key={node.id} style={{ borderTop: `1px solid ${theme.border}` }}>
+                      <td style={{ padding: '25px', fontWeight: '900', color: theme.primary }}>#{node.id}</td>
+                      <td style={{ padding: '25px', fontWeight: '700' }}>{node.title}</td>
+                      <td style={{ padding: '25px' }}>
+                        <span style={{ padding: '5px 12px', background: `${theme.primary}15`, color: theme.primary, borderRadius: '8px', fontSize: '11px', fontWeight: '900' }}>
+                          TIER {node.layers}
                         </span>
                       </td>
-                      <td style={{ padding: '24px', color: theme.muted, fontSize: '13px' }}>{node.created}</td>
-                      <td style={{ padding: '24px', display: 'flex', gap: '12px' }}>
+                      <td style={{ padding: '25px', color: theme.muted, fontSize: '14px' }}>{node.clicks} total clicks</td>
+                      <td style={{ padding: '25px', display: 'flex', gap: '15px' }}>
                         <button 
-                          onClick={() => { navigator.clipboard.writeText(node.url); notify("Copied to clipboard"); }}
-                          style={{ padding: '10px 20px', background: theme.cardAlt, border: 'none', color: 'white', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}
-                        >Copy URL</button>
+                          onClick={() => { navigator.clipboard.writeText(node.url); notify("Node URL Copied"); }}
+                          style={{ padding: '12px 20px', background: theme.cardAlt, border: 'none', color: 'white', borderRadius: '12px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' }}
+                        >Copy</button>
                         <button 
-                          onClick={() => deleteNode(node.id)}
-                          style={{ padding: '10px 20px', background: `${theme.error}15`, border: 'none', color: theme.error, borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}
+                          onClick={() => purgeNode(node.id)}
+                          style={{ padding: '12px 20px', background: `${theme.error}15`, border: 'none', color: theme.error, borderRadius: '12px', cursor: 'pointer', fontWeight: '700', fontSize: '13px' }}
                         >Purge</button>
                       </td>
                     </tr>
                   ))}
                   {links.length === 0 && (
-                    <tr>
-                      <td colSpan="5" style={{ padding: '80px', textAlign: 'center', color: theme.muted }}>No nodes active in the current sector.</td>
-                    </tr>
+                    <tr><td colSpan="5" style={{ padding: '100px', textAlign: 'center', color: theme.muted }}>No nodes currently deployed.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -415,52 +411,49 @@ export default function BXPlatform() {
           </div>
         )}
 
-        {activeTab === 'config' && (
-          <div className="fade-in" style={{ maxWidth: '680px' }}>
-            <h2 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '48px' }}>System Configuration</h2>
+        {activeTab === 'settings' && (
+          <div className="fade-up" style={{ maxWidth: '750px' }}>
+            <h2 style={{ fontSize: '42px', fontWeight: '900', marginBottom: '50px' }}>Control Panel</h2>
             
-            <div className="glass-card">
-              <div style={{ marginBottom: '40px' }}>
-                <h4 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  Platform Logic
-                </h4>
-                <div style={{ background: theme.bg, padding: '24px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="content-card">
+              <div style={{ marginBottom: '45px' }}>
+                <h4 style={{ marginBottom: '20px', fontSize: '18px' }}>Global Protocols</h4>
+                <div style={{ background: theme.bg, padding: '25px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                   <div>
-                    <div style={{ fontWeight: 'bold' }}>Maintenance Mode</div>
-                    <div style={{ fontSize: '12px', color: theme.muted }}>Globally disable all active link redirects.</div>
+                    <div style={{ fontWeight: '800' }}>Global Maintenance</div>
+                    <div style={{ fontSize: '12px', color: theme.muted }}>Pause all link redirection instantly.</div>
                   </div>
-                  <input type="checkbox" checked={isMaintenance} onChange={e => setIsMaintenance(e.target.checked)} style={{ width: '24px', height: '24px' }} />
+                  <input type="checkbox" checked={maintenanceMode} onChange={e => setMaintenanceMode(e.target.checked)} style={{ width: '25px', height: '25px', cursor: 'pointer' }} />
                 </div>
               </div>
 
-              <div style={{ marginBottom: '40px' }}>
-                <h4 style={{ marginBottom: '16px' }}>Link Defaults</h4>
-                <select style={inputBase} value={defaultExpiry} onChange={e => setDefaultExpiry(e.target.value)}>
-                  <option value="never">Permanent Storage</option>
-                  <option value="24h">Self-Destruct in 24h</option>
-                  <option value="7d">Self-Destruct in 7 Days</option>
+              <div style={{ marginBottom: '45px' }}>
+                <h4 style={{ marginBottom: '15px', fontSize: '18px' }}>Advanced Optimization</h4>
+                <label style={{ fontSize: '12px', color: theme.muted, marginBottom: '8px', display: 'block' }}>ANTI-BOT SENSITIVITY</label>
+                <select style={inputStyle} value={antiBotLevel} onChange={e => setAntiBotLevel(e.target.value)}>
+                  <option>Standard protection</option>
+                  <option>Aggressive detection</option>
+                  <option>Maximum (CAPTCHA Required)</option>
                 </select>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
-                  <input type="checkbox" checked={requireCaptcha} onChange={e => setRequireCaptcha(e.target.checked)} />
-                  <span style={{ fontSize: '14px' }}>Force anti-bot CAPTCHA on all nodes</span>
-                </div>
+
+                <label style={{ fontSize: '12px', color: theme.muted, marginBottom: '8px', display: 'block' }}>VANITY DOMAIN</label>
+                <input style={inputStyle} value={customDomain} onChange={e => setCustomDomain(e.target.value)} />
               </div>
 
-              <button style={buttonBase()} onClick={() => notify("Core configurations synced", "success")}>Save System Changes</button>
+              <button style={primaryButtonStyle()} onClick={() => notify("System parameters updated", "success")}>Sync System Config</button>
             </div>
           </div>
         )}
       </div>
 
-      {/* NOTIFICATION HUB */}
+      {/* GLOBAL NOTIFICATION SYSTEM */}
       {notification.show && (
         <div style={{ 
-          position: 'fixed', bottom: '48px', right: '48px', 
+          position: 'fixed', bottom: '50px', right: '50px', 
           background: notification.type === 'error' ? theme.error : theme.primary, 
-          color: 'white', padding: '20px 40px', borderRadius: '20px', 
-          fontWeight: '800', zIndex: 99999, boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
-          animation: 'fadeIn 0.3s ease-out'
+          color: 'white', padding: '22px 45px', borderRadius: '25px', 
+          fontWeight: '900', zIndex: 100000, boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+          animation: 'fadeUp 0.3s ease-out'
         }}>
           {notification.msg.toUpperCase()}
         </div>
@@ -468,4 +461,3 @@ export default function BXPlatform() {
     </div>
   );
 }
-
