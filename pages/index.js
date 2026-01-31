@@ -26,10 +26,6 @@ export default function BXCore() {
   const [targetUrl, setTargetUrl] = useState('');
   const [layerCount, setLayerCount] = useState(1);
   const [hopUrls, setHopUrls] = useState(['', '', '', '']);
-  
-  // New Image System
-  const [thumbImage, setThumbImage] = useState(null); // Base64 string
-  const fileInputRef = useRef(null);
 
   // New Captcha System
   const [captchaVerified, setCaptchaVerified] = useState(false);
@@ -170,20 +166,6 @@ export default function BXCore() {
 
   // --- [CORE FUNCTIONALITY: IMAGE & LINK] ---
 
-  const handleImagePick = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 1000000) return triggerNotify("IMAGE TOO LARGE (MAX 1MB)", "warning");
-      
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setThumbImage(reader.result); // Stores base64
-        triggerNotify("IMAGE LOADED SUCCESSFULLY", "success");
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleHopChange = (index, value) => {
     const newHops = [...hopUrls];
     newHops[index] = value;
@@ -192,12 +174,11 @@ export default function BXCore() {
 
   const generateBxLink = () => {
     if (!title || !targetUrl) return triggerNotify("MISSING CORE DATA", "error");
-    if (!thumbImage) return triggerNotify("THUMBNAIL REQUIRED", "warning");
     if (!captchaVerified) return triggerNotify("COMPLETE SECURITY CHECK", "error");
 
     setIsLoading(true);
 
-    // Create the Logic Payload without thumb to keep link short
+    // Create the Logic Payload
     const nodeData = {
       id: Date.now(),
       title,
@@ -212,7 +193,7 @@ export default function BXCore() {
       const payloadString = btoa(JSON.stringify(nodeData));
       const finalLink = `${window.location.origin}/unlock?bx=${payloadString}`;
 
-      const newEntry = { ...nodeData, thumb: thumbImage, url: finalLink };
+      const newEntry = { ...nodeData, url: finalLink };
       const newVault = [newEntry, ...vault];
       
       setVault(newVault);
@@ -221,7 +202,6 @@ export default function BXCore() {
       // Reset Form
       setTitle('');
       setTargetUrl('');
-      setThumbImage(null);
       setCaptchaVerified(false);
       
       setTimeout(() => {
@@ -283,9 +263,6 @@ export default function BXCore() {
     panelTitle: { fontSize: '28px', fontWeight: '800', marginBottom: '30px', color: '#fff' },
     card: { background: theme.card, borderRadius: '20px', border: `1px solid ${theme.border}`, padding: '30px', marginBottom: '20px' },
     label: { fontSize: '11px', fontWeight: 'bold', color: theme.muted, marginBottom: '8px', display: 'block', textTransform: 'uppercase' },
-    
-    // Image Upload
-    uploadBox: { border: `2px dashed ${theme.border}`, borderRadius: '12px', height: '150px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: thumbImage ? `url(${thumbImage}) center/cover` : theme.cardLight, transition: '0.3s' },
     
     // Captcha
     captchaBox: { display: 'flex', alignItems: 'center', gap: '15px', background: theme.bg, padding: '15px', borderRadius: '12px', border: `1px solid ${captchaVerified ? theme.success : theme.border}`, cursor: 'pointer', transition: '0.3s' },
@@ -406,15 +383,6 @@ export default function BXCore() {
                 </div>
               </div>
 
-              {/* IMAGE PICKER */}
-              <div style={{marginBottom: '20px'}}>
-                <span style={styles.label}>THUMBNAIL IMAGE (CLICK TO UPLOAD)</span>
-                <input type="file" ref={fileInputRef} onChange={handleImagePick} accept="image/*" style={{display: 'none'}} />
-                <div style={styles.uploadBox} onClick={() => fileInputRef.current.click()}>
-                  {!thumbImage && <span style={{color: theme.muted, fontSize: '12px'}}>SELECT IMAGE FROM GALLERY</span>}
-                </div>
-              </div>
-
               {/* SECURITY CONFIG */}
               <div style={{background: theme.bg, padding: '20px', borderRadius: '12px', border: `1px solid ${theme.border}`}}>
                  <div style={{display:'flex', justifyContent:'space-between', marginBottom:'15px'}}>
@@ -467,7 +435,6 @@ export default function BXCore() {
             ) : (
               vault.map((node) => (
                 <div key={node.id} style={{...styles.card, display: 'flex', alignItems: 'center', gap: '20px'}}>
-                  <img src={node.thumb} style={{width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover'}} />
                   <div style={{flex: 1}}>
                     <div style={{fontSize: '16px', fontWeight: 'bold', color: '#fff'}}>{node.title}</div>
                     <div style={{fontSize: '12px', color: theme.primary}}>{node.layers} Security Layers • {node.created}</div>
@@ -548,3 +515,4 @@ export default function BXCore() {
     </div>
   );
 }
+```:'center
