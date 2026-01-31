@@ -13,7 +13,7 @@ import jwt_decode from "jwt-decode";
 export default function BXCore() {
   // --- [CONFIGURACIÓN CRÍTICA] ---
   // Reemplaza esto con tu ID exacto de Google Cloud
-  const GOOGLE_CLIENT_ID = "744926521360-v61p65q0q0q0q0q0q0q0q0q0q0.apps.googleusercontent.com";
+  const GOOGLE_CLIENT_ID = "62163541365-qkfhuda81uev9b2poehqd7hic08oism6.apps.googleusercontent.com";
 
   // --- [UI & VIEW STATE] ---
   const [view, setView] = useState('loading_core'); 
