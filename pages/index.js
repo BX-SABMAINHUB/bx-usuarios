@@ -1,29 +1,27 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 /**
  * BX - PREMIUM CONTENT LOCKING ARCHITECTURE
- * VERSION: 12.0.0
+ * VERSION: 15.4.0
  * DESIGN: LOOTLABS ELITE (MODERN SLATE/INDIGO)
  * FLOW: GMAIL -> OTP -> PIN -> LOGIN
- * -----------------------------------------------------------------------
  */
 
-export default function BXCore() {
-  // --- [CORE STATE ENGINE] ---
+export default function BXPlatform() {
+  // --- [SYSTEM STATE ENGINE] ---
   const [view, setView] = useState('landing'); // landing, register, otp_verify, pin_setup, login, dashboard
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('create');
   const [notification, setNotification] = useState({ show: false, msg: '', type: 'info' });
 
-  // --- [AUTH & IDENTITY] ---
+  // --- [IDENTITY MANAGEMENT] ---
   const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
   const [otpInput, setOtpInput] = useState('');
-  const [serverOtp, setServerOtp] = useState(null);
+  const [generatedOtp, setGeneratedOtp] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
 
-  // --- [LINK GENERATOR & DATA] ---
+  // --- [GENERATOR CORE] ---
   const [title, setTitle] = useState('');
   const [target, setTarget] = useState('');
   const [thumbnail, setThumbnail] = useState('');
@@ -32,44 +30,36 @@ export default function BXCore() {
   const [links, setLinks] = useState([]);
   
   // --- [ADVANCED CONFIGURATION] ---
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [isMaintenance, setIsMaintenance] = useState(false);
   const [defaultExpiry, setDefaultExpiry] = useState('never');
-  const [aliasEnabled, setAliasEnabled] = useState(true);
-  const [customAlias, setCustomAlias] = useState('');
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [stealthMode, setStealthMode] = useState(false);
+  const [linkAlias, setLinkAlias] = useState('');
+  const [requireCaptcha, setRequireCaptcha] = useState(true);
 
-  // --- [THEME DEFINITION] ---
+  // --- [DESIGN TOKENS] ---
   const theme = {
     primary: '#6366f1', // Indigo Vibrant
-    primaryDark: '#4f46e5',
+    primaryHover: '#4f46e5',
     bg: '#0f172a',
     card: '#1e293b',
-    cardLight: '#334155',
+    cardAlt: '#334155',
     border: '#334155',
     text: '#f8fafc',
     muted: '#94a3b8',
     success: '#22c55e',
     error: '#f43f5e',
-    accent: '#818cf8'
+    shadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
   };
 
-  // --- [SYSTEM INITIALIZATION] ---
+  // --- [LIFECYCLE & PERSISTENCE] ---
   useEffect(() => {
-    // Load persisted data
-    const savedLinks = localStorage.getItem('bx_vault_links');
+    const savedLinks = localStorage.getItem('bx_vault_v15');
     if (savedLinks) setLinks(JSON.parse(savedLinks));
 
-    const session = localStorage.getItem('bx_auth_token');
+    const session = localStorage.getItem('bx_active_session');
     if (session) {
       setCurrentUser(JSON.parse(session));
       setView('dashboard');
-    }
-
-    // Check for incoming payloads (Unlocker Mode)
-    const params = new URLSearchParams(window.location.search);
-    const payload = params.get('payload');
-    if (payload) {
-      handleUnlockerMode(payload);
     }
   }, []);
 
@@ -78,130 +68,113 @@ export default function BXCore() {
     setTimeout(() => setNotification({ show: false, msg: '', type: 'info' }), 4500);
   };
 
-  const handleUnlockerMode = (data) => {
-    try {
-      const decoded = JSON.parse(atob(data));
-      // Logic for customer view could go here
-      console.log("Entering Gateway for:", decoded.t);
-    } catch (e) {
-      notify("Invalid Encrypted Payload", "error");
-    }
-  };
-
-  // --- [REGISTRATION FLOW: STEP 1 - EMAIL] ---
-  const initiateRegistration = async () => {
-    if (!email.includes('@')) return notify("Enter a valid Gmail address", "error");
+  // --- [REGISTRATION PROTOCOL] ---
+  const handleRegisterEmail = async () => {
+    if (!email.includes('@')) return notify("Invalid email format", "error");
     
     setLoading(true);
-    const generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
-    setServerOtp(generatedCode);
+    // Simulate API Call to send Gmail OTP
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(code);
 
-    try {
-      // API CALL SIMULATION (Your Nodemailer/API logic)
-      console.log(`[BX_MAILER] Sending Code ${generatedCode} to ${email}`);
-      
-      setTimeout(() => {
-        setLoading(false);
-        setView('otp_verify');
-        notify("Verification code sent to Gmail", "success");
-      }, 1200);
-    } catch (err) {
+    // LOGGING TO CONSOLE FOR DEV - In production, this goes to Gmail API
+    console.log(`[BX SERVER] Sending OTP ${code} to ${email}`);
+
+    setTimeout(() => {
       setLoading(false);
-      notify("Failed to connect to Mail Server", "error");
-    }
+      setView('otp_verify');
+      notify("Verification code dispatched to Gmail", "success");
+    }, 1200);
   };
 
-  // --- [REGISTRATION FLOW: STEP 2 - OTP] ---
-  const verifyIdentity = () => {
-    if (otpInput === serverOtp) {
+  const handleVerifyOtp = () => {
+    if (otpInput === generatedOtp) {
       setView('pin_setup');
-      notify("Identity verified. Setup your PIN.");
+      notify("Identity verified. Setup your security PIN.");
     } else {
-      notify("Invalid verification code", "error");
+      notify("Invalid code. Check your Gmail inbox.", "error");
     }
   };
 
-  // --- [REGISTRATION FLOW: STEP 3 - PIN] ---
-  const finalizeRegistration = () => {
-    if (pin.length < 4) return notify("PIN must be at least 4 digits", "error");
+  const handlePinSetup = () => {
+    if (pin.length < 4) return notify("PIN must be 4+ digits", "error");
     
-    const users = JSON.parse(localStorage.getItem('bx_operators') || '[]');
-    if (users.find(u => u.email === email)) {
-      notify("Email already registered", "error");
+    const operators = JSON.parse(localStorage.getItem('bx_operators') || '[]');
+    if (operators.find(o => o.email === email)) {
+      notify("User already exists", "error");
       setView('landing');
       return;
     }
 
-    users.push({ email, pin, joined: new Date().toISOString() });
-    localStorage.setItem('bx_operators', JSON.stringify(users));
+    operators.push({ email, pin });
+    localStorage.setItem('bx_operators', JSON.stringify(operators));
     
-    notify("Account created successfully", "success");
+    notify("Account provisioned. Please log in.", "success");
     setView('landing'); // Return to Home as requested
   };
 
-  // --- [LOGIN FLOW] ---
-  const executeLogin = () => {
-    const users = JSON.parse(localStorage.getItem('bx_operators') || '[]');
-    const operator = users.find(u => u.email === email && u.pin === pin);
+  // --- [LOGIN PROTOCOL] ---
+  const handleLogin = () => {
+    const operators = JSON.parse(localStorage.getItem('bx_operators') || '[]');
+    const user = operators.find(o => o.email === email && o.pin === pin);
 
-    if (operator) {
-      setCurrentUser(operator);
-      localStorage.setItem('bx_auth_token', JSON.stringify(operator));
+    if (user) {
+      setCurrentUser(user);
+      localStorage.setItem('bx_active_session', JSON.stringify(user));
       setView('dashboard');
-      notify("Welcome back, Operator", "success");
+      notify("Authorized Access Granted", "success");
     } else {
-      notify("Invalid Email or PIN credentials", "error");
+      notify("Invalid Credentials", "error");
     }
   };
 
-  // --- [LINK GENERATION ENGINE] ---
-  const broadcastLink = () => {
-    if (!title || !target) return notify("Primary fields are required", "error");
+  // --- [DEPLOYMENT ENGINE] ---
+  const deployLinkNode = () => {
+    if (!title || !target) return notify("Primary fields missing", "error");
     
     setLoading(true);
     setTimeout(() => {
-      const config = {
+      const payload = {
         t: title,
         d: target,
-        i: thumbnail || 'https://i.ibb.co/vzPRm9M/alexgaming.png',
+        i: thumbnail || 'https://via.placeholder.com/300x200?text=BX+Asset',
         s: hops.slice(0, layers).filter(h => h !== ''),
-        p: isPrivate,
-        exp: defaultExpiry
+        m: isMaintenance
       };
 
-      const encrypted = btoa(JSON.stringify(config));
-      const finalUrl = `${window.location.origin}/access?payload=${encrypted}`;
+      const encrypted = btoa(JSON.stringify(payload));
+      const finalUrl = `${window.location.origin}/unlock?bx_id=${encrypted}`;
 
-      const newLink = {
+      const newNode = {
         id: Math.random().toString(36).substr(2, 6).toUpperCase(),
         title,
         url: finalUrl,
         layers,
         clicks: 0,
-        status: maintenanceMode ? 'PAUSED' : 'ACTIVE',
-        created: new Date().toLocaleDateString()
+        created: new Date().toLocaleDateString(),
+        expiry: defaultExpiry
       };
 
-      const updated = [newLink, ...links];
+      const updated = [newNode, ...links];
       setLinks(updated);
-      localStorage.setItem('bx_vault_links', JSON.stringify(updated));
+      localStorage.setItem('bx_vault_v15', JSON.stringify(updated));
       
-      // Cleanup
+      // Reset Form
       setTitle(''); setTarget(''); setThumbnail(''); setHops(['', '', '']);
       setLoading(false);
-      notify("Link Broadcast Successful", "success");
+      notify("Link node deployed successfully", "success");
     }, 1500);
   };
 
-  const deleteLink = (id) => {
+  const deleteNode = (id) => {
     const filtered = links.filter(l => l.id !== id);
     setLinks(filtered);
-    localStorage.setItem('bx_vault_links', JSON.stringify(filtered));
-    notify("Node deleted from Vault");
+    localStorage.setItem('bx_vault_v15', JSON.stringify(filtered));
+    notify("Node purged from vault", "info");
   };
 
-  // --- [STYLING & UI COMPONENTS] ---
-  const sharedInput = {
+  // --- [STYLES] ---
+  const inputBase = {
     width: '100%',
     padding: '16px',
     background: '#0f172a',
@@ -210,82 +183,83 @@ export default function BXCore() {
     color: 'white',
     fontSize: '15px',
     outline: 'none',
-    transition: '0.3s'
+    transition: 'border-color 0.2s ease',
+    marginBottom: '16px'
   };
 
-  const primaryBtn = (color = theme.primary) => ({
+  const buttonBase = (bgColor = theme.primary) => ({
     width: '100%',
     padding: '16px',
-    background: color,
+    background: bgColor,
     color: 'white',
     border: 'none',
     borderRadius: '12px',
     fontWeight: '700',
     fontSize: '15px',
     cursor: 'pointer',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-    transition: '0.2s'
+    transition: 'transform 0.1s active',
+    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
   });
 
-  // --- [VISTA: AUTHENTICATION INTERFACE] ---
+  // --- [VIEW: PUBLIC INTERFACES] ---
   if (view !== 'dashboard') {
     return (
-      <div style={{ background: theme.bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ background: theme.bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: '"Inter", sans-serif' }}>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-          .auth-card { background: ${theme.card}; padding: 50px; border-radius: 30px; width: 100%; maxWidth: 450px; border: 1px solid ${theme.border}; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-          .bx-logo { font-size: 50px; font-weight: 800; color: ${theme.primary}; margin: 0; letter-spacing: -2px; }
-          .fade-in { animation: fadeIn 0.4s ease-out; }
-          @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+          .auth-card { background: ${theme.card}; padding: 48px; border-radius: 32px; width: 100%; maxWidth: 460px; border: 1px solid ${theme.border}; box-shadow: ${theme.shadow}; }
+          .logo { font-size: 56px; font-weight: 800; color: ${theme.primary}; margin: 0; letter-spacing: -3px; }
+          .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+          @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         `}</style>
         
         <div className="auth-card fade-in">
           <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <h1 className="bx-logo">BX</h1>
-            <p style={{ color: theme.muted, fontSize: '14px' }}>Secure Asset Management</p>
+            <h1 className="logo">BX</h1>
+            <p style={{ color: theme.muted, fontWeight: '600' }}>{view === 'landing' ? 'Advanced Distribution Platform' : 'Secure Authorization'}</p>
           </div>
 
           {view === 'landing' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <button style={primaryBtn()} onClick={() => setView('register')}>Get Started</button>
-              <button style={{ ...primaryBtn('transparent'), border: `1px solid ${theme.border}` }} onClick={() => setView('login')}>Sign In</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <button style={buttonBase()} onClick={() => setView('register')}>Create Account</button>
+              <button style={{ ...buttonBase('transparent'), border: `2px solid ${theme.border}` }} onClick={() => setView('login')}>Operator Login</button>
+              <p style={{ fontSize: '12px', color: theme.muted, textAlign: 'center', marginTop: '20px' }}>Protected by BX Encryption Engine v15</p>
             </div>
           )}
 
           {view === 'register' && (
             <div className="fade-in">
-              <label style={{ color: theme.muted, fontSize: '12px', marginBottom: '8px', display: 'block' }}>GMAIL ADDRESS</label>
-              <input style={sharedInput} placeholder="name@gmail.com" onChange={e => setEmail(e.target.value)} />
-              <button style={{ ...primaryBtn(), marginTop: '10px' }} onClick={initiateRegistration} disabled={loading}>
-                {loading ? 'Processing...' : 'Continue'}
-              </button>
-              <p style={{ textAlign: 'center', color: theme.muted, fontSize: '13px', marginTop: '20px', cursor: 'pointer' }} onClick={() => setView('landing')}>Back to Home</p>
+              <label style={{ fontSize: '13px', color: theme.muted, marginBottom: '8px', display: 'block' }}>GMAIL ACCOUNT</label>
+              <input style={inputBase} type="email" placeholder="example@gmail.com" onChange={e => setEmail(e.target.value)} />
+              <button style={buttonBase()} onClick={handleRegisterEmail} disabled={loading}>{loading ? 'Dispatched Code...' : 'Send Verification'}</button>
+              <p style={{ textAlign: 'center', color: theme.muted, fontSize: '14px', marginTop: '24px', cursor: 'pointer' }} onClick={() => setView('landing')}>Cancel</p>
             </div>
           )}
 
           {view === 'otp_verify' && (
             <div className="fade-in">
-              <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>Check your Email</h3>
-              <p style={{ color: theme.muted, fontSize: '13px', marginBottom: '20px' }}>We sent a 6-digit code to {email}.</p>
-              <input style={{ ...sharedInput, textAlign: 'center', letterSpacing: '10px', fontSize: '22px' }} maxLength={6} onChange={e => setOtpInput(e.target.value)} />
-              <button style={{ ...primaryBtn(), marginTop: '20px' }} onClick={verifyIdentity}>Verify Identity</button>
+              <h3 style={{ marginBottom: '10px' }}>Enter Code</h3>
+              <p style={{ color: theme.muted, fontSize: '14px', marginBottom: '24px' }}>Input the 6-digit code sent to your Gmail.</p>
+              <input style={{ ...inputBase, textAlign: 'center', letterSpacing: '8px', fontSize: '24px' }} maxLength={6} onChange={e => setOtpInput(e.target.value)} />
+              <button style={buttonBase()} onClick={handleVerifyOtp}>Verify Identity</button>
             </div>
           )}
 
           {view === 'pin_setup' && (
             <div className="fade-in">
-              <h3 style={{ fontSize: '16px', marginBottom: '20px' }}>Create Master PIN</h3>
-              <input style={{ ...sharedInput, textAlign: 'center' }} type="password" placeholder="****" maxLength={4} onChange={e => setPin(e.target.value)} />
-              <button style={{ ...primaryBtn(), marginTop: '20px' }} onClick={finalizeRegistration}>Complete Setup</button>
+              <h3 style={{ marginBottom: '10px' }}>Secure Your Account</h3>
+              <p style={{ color: theme.muted, fontSize: '14px', marginBottom: '24px' }}>Create a Master PIN for future logins.</p>
+              <input style={{ ...inputBase, textAlign: 'center' }} type="password" placeholder="****" maxLength={8} onChange={e => setPin(e.target.value)} />
+              <button style={buttonBase()} onClick={handlePinSetup}>Finish Registration</button>
             </div>
           )}
 
           {view === 'login' && (
             <div className="fade-in">
-              <input style={sharedInput} placeholder="Gmail" onChange={e => setEmail(e.target.value)} />
-              <input style={{ ...sharedInput, marginTop: '15px' }} type="password" placeholder="Master PIN" onChange={e => setPin(e.target.value)} />
-              <button style={{ ...primaryBtn(), marginTop: '20px' }} onClick={executeLogin}>Authorize Access</button>
-              <p style={{ textAlign: 'center', color: theme.muted, fontSize: '13px', marginTop: '20px', cursor: 'pointer' }} onClick={() => setView('landing')}>Back to Home</p>
+              <input style={inputBase} placeholder="Gmail" onChange={e => setEmail(e.target.value)} />
+              <input style={inputBase} type="password" placeholder="Master PIN" onChange={e => setPin(e.target.value)} />
+              <button style={buttonBase()} onClick={handleLogin}>Authorize</button>
+              <p style={{ textAlign: 'center', color: theme.muted, fontSize: '14px', marginTop: '24px', cursor: 'pointer' }} onClick={() => setView('landing')}>Back</p>
             </div>
           )}
         </div>
@@ -293,89 +267,84 @@ export default function BXCore() {
     );
   }
 
-  // --- [VISTA: DASHBOARD EXPERIENCE] ---
+  // --- [VIEW: DASHBOARD (LOOTLABS STYLE)] ---
   return (
-    <div style={{ background: theme.bg, minHeight: '100vh', display: 'flex', color: 'white', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ background: theme.bg, minHeight: '100vh', display: 'flex', color: theme.text, fontFamily: '"Inter", sans-serif' }}>
       <style>{`
-        .sidebar-item { padding: 14px 24px; border-radius: 12px; cursor: pointer; color: ${theme.muted}; font-weight: 600; display: flex; align-items: center; gap: 12px; transition: 0.2s; }
+        .sidebar-item { padding: 16px 24px; border-radius: 12px; cursor: pointer; color: ${theme.muted}; font-weight: 600; transition: all 0.2s; display: flex; align-items: center; gap: 12px; margin-bottom: 6px; border: none; background: transparent; width: 100%; text-align: left; }
         .sidebar-item:hover { color: white; background: rgba(255,255,255,0.05); }
         .sidebar-item.active { background: ${theme.primary}15; color: ${theme.primary}; }
-        .card { background: ${theme.card}; border: 1px solid ${theme.border}; border-radius: 20px; padding: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .glass-card { background: ${theme.card}; border: 1px solid ${theme.border}; border-radius: 24px; padding: 32px; }
+        .table-row { transition: background 0.2s; }
         .table-row:hover { background: rgba(255,255,255,0.02); }
+        .badge { padding: 4px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
       `}</style>
 
-      {/* LEFT NAVIGATION */}
-      <div style={{ width: '300px', borderRight: `1px solid ${theme.border}`, padding: '40px 20px', display: 'flex', flexDirection: 'column' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: '800', color: theme.primary, marginBottom: '50px', paddingLeft: '20px' }}>BX</h1>
+      {/* NAVIGATION BAR */}
+      <div style={{ width: '320px', borderRight: `1px solid ${theme.border}`, padding: '48px 24px', display: 'flex', flexDirection: 'column' }}>
+        <h1 style={{ fontSize: '32px', fontWeight: '800', color: theme.primary, marginBottom: '48px', paddingLeft: '24px' }}>BX</h1>
         
         <nav style={{ flex: 1 }}>
-          <div className={`sidebar-item ${activeTab === 'create' ? 'active' : ''}`} onClick={() => setActiveTab('create')}>
-            <span>Create Node</span>
-          </div>
-          <div className={`sidebar-item ${activeTab === 'vault' ? 'active' : ''}`} onClick={() => setActiveTab('vault')}>
-            <span>Asset Vault</span>
-          </div>
-          <div className={`sidebar-item ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}>
-            <span>Settings</span>
-          </div>
+          <button className={`sidebar-item ${activeTab === 'create' ? 'active' : ''}`} onClick={() => setActiveTab('create')}>New Link</button>
+          <button className={`sidebar-item ${activeTab === 'manage' ? 'active' : ''}`} onClick={() => setActiveTab('manage')}>Vault</button>
+          <button className={`sidebar-item ${activeTab === 'config' ? 'active' : ''}`} onClick={() => setActiveTab('config')}>Settings</button>
         </nav>
 
-        <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-          <div style={{ fontSize: '11px', color: theme.muted, marginBottom: '4px' }}>CONNECTED_AS</div>
-          <div style={{ fontSize: '13px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser.email}</div>
+        <div style={{ background: '#0f172a', padding: '24px', borderRadius: '20px', border: `1px solid ${theme.border}` }}>
+          <div style={{ fontSize: '11px', color: theme.muted, marginBottom: '6px', fontWeight: 'bold', letterSpacing: '1px' }}>LOGGED_IN_AS</div>
+          <div style={{ fontSize: '14px', fontWeight: '700', marginBottom: '16px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser.email}</div>
           <button 
-            style={{ color: theme.error, border: 'none', background: 'none', cursor: 'pointer', fontSize: '12px', marginTop: '12px', padding: 0, fontWeight: 'bold' }}
-            onClick={() => { localStorage.removeItem('bx_auth_token'); window.location.reload(); }}
-          >Termine Session</button>
+            style={{ color: theme.error, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', padding: 0 }}
+            onClick={() => { localStorage.removeItem('bx_active_session'); window.location.reload(); }}
+          >Terminate Session</button>
         </div>
       </div>
 
-      {/* CONTENT AREA */}
-      <div style={{ flex: 1, padding: '60px', overflowY: 'auto' }}>
+      {/* CONTENT ENGINE */}
+      <div style={{ flex: 1, padding: '64px', overflowY: 'auto' }}>
         {activeTab === 'create' && (
-          <div className="fade-in">
-            <h2 style={{ fontSize: '32px', fontWeight: '800', marginBottom: '8px' }}>Broadcast New Node</h2>
-            <p style={{ color: theme.muted, marginBottom: '40px' }}>Create high-security content locks with up to 3 redirection layers.</p>
+          <div className="fade-in" style={{ maxWidth: '960px' }}>
+            <h2 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '12px' }}>Deploy New Link Node</h2>
+            <p style={{ color: theme.muted, marginBottom: '48px' }}>Encrypt your content behind high-performance redirection layers.</p>
 
-            <div className="card">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px', marginBottom: '25px' }}>
+            <div className="glass-card">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
                 <div>
-                  <label style={{ fontSize: '13px', color: theme.muted, marginBottom: '8px', display: 'block' }}>ASSET TITLE</label>
-                  <input style={sharedInput} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Exclusive GFX Pack" />
+                  <label style={{ fontSize: '13px', fontWeight: '700', color: theme.muted, marginBottom: '10px', display: 'block' }}>ASSET TITLE</label>
+                  <input style={inputBase} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Exclusive Lightroom Presets" />
                 </div>
                 <div>
-                  <label style={{ fontSize: '13px', color: theme.muted, marginBottom: '8px', display: 'block' }}>THUMBNAIL URL</label>
-                  <input style={sharedInput} value={thumbnail} onChange={e => setThumbnail(e.target.value)} placeholder="https://imgur.com/..." />
+                  <label style={{ fontSize: '13px', fontWeight: '700', color: theme.muted, marginBottom: '10px', display: 'block' }}>THUMBNAIL URL</label>
+                  <input style={inputBase} value={thumbnail} onChange={e => setThumbnail(e.target.value)} placeholder="https://..." />
                 </div>
               </div>
 
-              <label style={{ fontSize: '13px', color: theme.muted, marginBottom: '8px', display: 'block' }}>FINAL DESTINATION (LOCKED)</label>
-              <input style={sharedInput} value={target} onChange={e => setTarget(e.target.value)} placeholder="https://mega.nz/..." />
+              <label style={{ fontSize: '13px', fontWeight: '700', color: theme.muted, marginBottom: '10px', display: 'block' }}>DESTINATION TARGET</label>
+              <input style={inputBase} value={target} onChange={e => setTarget(e.target.value)} placeholder="https://drive.google.com/..." />
 
-              {/* SECURITY LAYERS CONFIG */}
-              <div style={{ background: theme.bg, padding: '25px', borderRadius: '16px', border: `1px solid ${theme.border}`, marginTop: '15px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ background: theme.bg, padding: '32px', borderRadius: '20px', border: `1px solid ${theme.border}`, marginTop: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <div>
-                    <span style={{ fontWeight: 'bold', fontSize: '15px' }}>Traffic Routing</span>
-                    <p style={{ fontSize: '12px', color: theme.muted, margin: 0 }}>Add delay layers to maximize revenue.</p>
+                    <h4 style={{ margin: 0 }}>Traffic Flow Security</h4>
+                    <p style={{ margin: 0, fontSize: '12px', color: theme.muted }}>Each layer adds a mandatory 30-second verification delay.</p>
                   </div>
                   <select 
                     value={layers} 
                     onChange={e => setLayers(parseInt(e.target.value))}
-                    style={{ background: theme.card, color: 'white', border: `1px solid ${theme.border}`, padding: '10px', borderRadius: '8px' }}
+                    style={{ background: theme.card, color: 'white', border: `1px solid ${theme.border}`, padding: '12px', borderRadius: '12px', fontWeight: 'bold' }}
                   >
-                    <option value="1">1 Layer</option>
-                    <option value="2">2 Layers</option>
-                    <option value="3">3 Layers</option>
+                    <option value="1">1 Verification Layer</option>
+                    <option value="2">2 Verification Layers</option>
+                    <option value="3">3 Verification Layers</option>
                   </select>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${layers}, 1fr)`, gap: '15px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${layers}, 1fr)`, gap: '20px' }}>
                   {Array.from({ length: layers }).map((_, i) => (
                     <input 
                       key={i} 
-                      style={{ ...sharedInput, fontSize: '13px' }} 
-                      placeholder={`Hop 0${i+1} URL`} 
+                      style={{ ...inputBase, marginBottom: 0 }} 
+                      placeholder={`Security Step 0${i+1} URL`} 
                       value={hops[i]} 
                       onChange={e => {
                         const h = [...hops]; h[i] = e.target.value; setHops(h);
@@ -386,65 +355,58 @@ export default function BXCore() {
               </div>
 
               <button 
-                style={{ ...primaryBtn(), marginTop: '30px', height: '60px', fontSize: '16px' }}
-                onClick={broadcastLink}
+                style={{ ...buttonBase(), marginTop: '40px', height: '64px', fontSize: '16px' }}
+                onClick={deployLinkNode}
                 disabled={loading}
               >
-                {loading ? 'Encrypting and Deploying...' : 'Deploy Link Node'}
+                {loading ? 'Encrypting Node...' : 'Initialize Link Deployment'}
               </button>
             </div>
           </div>
         )}
 
-        {activeTab === 'vault' && (
+        {activeTab === 'manage' && (
           <div className="fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px' }}>
-              <div>
-                <h2 style={{ fontSize: '32px', fontWeight: '800', marginBottom: '8px' }}>Asset Vault</h2>
-                <p style={{ color: theme.muted, margin: 0 }}>Manage your active distribution network.</p>
-              </div>
-              <div style={{ color: theme.primary, fontWeight: 'bold' }}>{links.length} Active Nodes</div>
-            </div>
+            <h2 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '12px' }}>Asset Vault</h2>
+            <p style={{ color: theme.muted, marginBottom: '48px' }}>Manage and monitor your active distribution nodes.</p>
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ textAlign: 'left', background: 'rgba(255,255,255,0.02)' }}>
-                    <th style={{ padding: '20px', fontSize: '12px', color: theme.muted }}>UID</th>
-                    <th style={{ padding: '20px', fontSize: '12px', color: theme.muted }}>TITLE</th>
-                    <th style={{ padding: '20px', fontSize: '12px', color: theme.muted }}>LAYERS</th>
-                    <th style={{ padding: '20px', fontSize: '12px', color: theme.muted }}>CLICKS</th>
-                    <th style={{ padding: '20px', fontSize: '12px', color: theme.muted }}>ACTIONS</th>
+                <thead style={{ background: 'rgba(255,255,255,0.02)' }}>
+                  <tr style={{ textAlign: 'left' }}>
+                    <th style={{ padding: '24px', fontSize: '12px', color: theme.muted }}>NODE ID</th>
+                    <th style={{ padding: '24px', fontSize: '12px', color: theme.muted }}>ASSET TITLE</th>
+                    <th style={{ padding: '24px', fontSize: '12px', color: theme.muted }}>SECURITY</th>
+                    <th style={{ padding: '24px', fontSize: '12px', color: theme.muted }}>DATE</th>
+                    <th style={{ padding: '24px', fontSize: '12px', color: theme.muted }}>ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {links.map(link => (
-                    <tr key={link.id} className="table-row">
-                      <td style={{ padding: '20px', color: theme.primary, fontWeight: 'bold' }}>#{link.id}</td>
-                      <td style={{ padding: '20px', fontWeight: '600' }}>{link.title}</td>
-                      <td style={{ padding: '20px' }}>
-                        <span style={{ padding: '4px 10px', background: `${theme.primary}20', color: theme.primary, borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>
-                          {link.layers} STEPS
+                  {links.map(node => (
+                    <tr key={node.id} className="table-row">
+                      <td style={{ padding: '24px', fontWeight: '800', color: theme.primary }}>#{node.id}</td>
+                      <td style={{ padding: '24px', fontWeight: '600' }}>{node.title}</td>
+                      <td style={{ padding: '24px' }}>
+                        <span className="badge" style={{ background: `${theme.primary}20`, color: theme.primary }}>
+                          {node.layers} LAYERS
                         </span>
                       </td>
-                      <td style={{ padding: '20px', color: theme.muted }}>{link.clicks}</td>
-                      <td style={{ padding: '20px', display: 'flex', gap: '10px' }}>
+                      <td style={{ padding: '24px', color: theme.muted, fontSize: '13px' }}>{node.created}</td>
+                      <td style={{ padding: '24px', display: 'flex', gap: '12px' }}>
                         <button 
-                          onClick={() => { navigator.clipboard.writeText(link.url); notify("Link Copied!"); }}
-                          style={{ padding: '10px 15px', background: theme.cardLight, border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                          onClick={() => { navigator.clipboard.writeText(node.url); notify("Copied to clipboard"); }}
+                          style={{ padding: '10px 20px', background: theme.cardAlt, border: 'none', color: 'white', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}
                         >Copy URL</button>
                         <button 
-                          onClick={() => deleteLink(link.id)}
-                          style={{ padding: '10px 15px', background: `${theme.error}15`, border: 'none', color: theme.error, borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                          onClick={() => deleteNode(node.id)}
+                          style={{ padding: '10px 20px', background: `${theme.error}15`, border: 'none', color: theme.error, borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}
                         >Purge</button>
                       </td>
                     </tr>
                   ))}
                   {links.length === 0 && (
                     <tr>
-                      <td colSpan="5" style={{ padding: '60px', textAlign: 'center', color: theme.muted }}>
-                        No nodes found in this sector.
-                      </td>
+                      <td colSpan="5" style={{ padding: '80px', textAlign: 'center', color: theme.muted }}>No nodes active in the current sector.</td>
                     </tr>
                   )}
                 </tbody>
@@ -454,65 +416,53 @@ export default function BXCore() {
         )}
 
         {activeTab === 'config' && (
-          <div className="fade-in" style={{ maxWidth: '650px' }}>
-            <h2 style={{ fontSize: '32px', fontWeight: '800', marginBottom: '40px' }}>Global Settings</h2>
+          <div className="fade-in" style={{ maxWidth: '680px' }}>
+            <h2 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '48px' }}>System Configuration</h2>
             
-            <div className="card">
-              <div style={{ marginBottom: '30px' }}>
-                <h4 style={{ marginBottom: '15px', fontSize: '16px' }}>Network Status</h4>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme.bg, padding: '20px', borderRadius: '15px' }}>
+            <div className="glass-card">
+              <div style={{ marginBottom: '40px' }}>
+                <h4 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  Platform Logic
+                </h4>
+                <div style={{ background: theme.bg, padding: '24px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>Maintenance Mode</div>
-                    <div style={{ fontSize: '12px', color: theme.muted }}>Redirect all traffic to a fallback page.</div>
+                    <div style={{ fontWeight: 'bold' }}>Maintenance Mode</div>
+                    <div style={{ fontSize: '12px', color: theme.muted }}>Globally disable all active link redirects.</div>
                   </div>
-                  <input type="checkbox" checked={maintenanceMode} onChange={e => setMaintenanceMode(e.target.checked)} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                  <input type="checkbox" checked={isMaintenance} onChange={e => setIsMaintenance(e.target.checked)} style={{ width: '24px', height: '24px' }} />
                 </div>
               </div>
 
-              <div style={{ marginBottom: '30px' }}>
-                <h4 style={{ marginBottom: '10px', fontSize: '16px' }}>Default Node Expiry</h4>
-                <select 
-                  style={sharedInput} 
-                  value={defaultExpiry} 
-                  onChange={e => setDefaultExpiry(e.target.value)}
-                >
-                  <option value="never">Never (Persistent)</option>
-                  <option value="24h">24 Hours</option>
-                  <option value="48h">48 Hours</option>
-                  <option value="7d">7 Days</option>
+              <div style={{ marginBottom: '40px' }}>
+                <h4 style={{ marginBottom: '16px' }}>Link Defaults</h4>
+                <select style={inputBase} value={defaultExpiry} onChange={e => setDefaultExpiry(e.target.value)}>
+                  <option value="never">Permanent Storage</option>
+                  <option value="24h">Self-Destruct in 24h</option>
+                  <option value="7d">Self-Destruct in 7 Days</option>
                 </select>
-              </div>
-
-              <div style={{ marginBottom: '30px' }}>
-                <h4 style={{ marginBottom: '15px', fontSize: '16px' }}>Visibility</h4>
-                <div style={{ display: 'flex', gap: '20px' }}>
-                  <button 
-                    style={{ ...primaryBtn(isPrivate ? theme.primary : 'transparent'), border: `1px solid ${theme.border}`, flex: 1 }}
-                    onClick={() => setIsPrivate(true)}
-                  >Private Vault</button>
-                  <button 
-                    style={{ ...primaryBtn(!isPrivate ? theme.primary : 'transparent'), border: `1px solid ${theme.border}`, flex: 1 }}
-                    onClick={() => setIsPrivate(false)}
-                  >Public Hub</button>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px' }}>
+                  <input type="checkbox" checked={requireCaptcha} onChange={e => setRequireCaptcha(e.target.checked)} />
+                  <span style={{ fontSize: '14px' }}>Force anti-bot CAPTCHA on all nodes</span>
                 </div>
               </div>
 
-              <button style={{ ...primaryBtn(), height: '55px' }} onClick={() => notify("Settings Synced Successfully", "success")}>Save System Config</button>
+              <button style={buttonBase()} onClick={() => notify("Core configurations synced", "success")}>Save System Changes</button>
             </div>
           </div>
         )}
       </div>
 
-      {/* FLOATING NOTIFICATION */}
+      {/* NOTIFICATION HUB */}
       {notification.show && (
         <div style={{ 
-          position: 'fixed', bottom: '40px', right: '40px', 
+          position: 'fixed', bottom: '48px', right: '48px', 
           background: notification.type === 'error' ? theme.error : theme.primary, 
-          color: 'white', padding: '18px 35px', borderRadius: '16px', 
-          fontWeight: 'bold', zIndex: 9999, animation: 'fadeIn 0.3s ease-out',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.4)'
+          color: 'white', padding: '20px 40px', borderRadius: '20px', 
+          fontWeight: '800', zIndex: 99999, boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+          animation: 'fadeIn 0.3s ease-out'
         }}>
-          {notification.msg}
+          {notification.msg.toUpperCase()}
         </div>
       )}
     </div>
