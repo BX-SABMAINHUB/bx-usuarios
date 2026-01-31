@@ -197,12 +197,11 @@ export default function BXCore() {
 
     setIsLoading(true);
 
-    // Create the Logic Payload
+    // Create the Logic Payload without thumb to keep link short
     const nodeData = {
       id: Date.now(),
       title,
       target: targetUrl,
-      thumb: thumbImage, // Passing the full base64 string
       layers: layerCount,
       h: hopUrls.slice(0, layerCount), // Only active hops
       created: new Date().toLocaleDateString()
@@ -213,7 +212,7 @@ export default function BXCore() {
       const payloadString = btoa(JSON.stringify(nodeData));
       const finalLink = `${window.location.origin}/unlock?bx=${payloadString}`;
 
-      const newEntry = { ...nodeData, url: finalLink };
+      const newEntry = { ...nodeData, thumb: thumbImage, url: finalLink };
       const newVault = [newEntry, ...vault];
       
       setVault(newVault);
