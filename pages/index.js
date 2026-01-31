@@ -26,7 +26,7 @@ export default function BXCore() {
   const [targetUrl, setTargetUrl] = useState('');
   const [layerCount, setLayerCount] = useState(1);
   const [hopUrls, setHopUrls] = useState(['', '', '', '']);
-
+  
   // New Captcha System
   const [captchaVerified, setCaptchaVerified] = useState(false);
 
@@ -515,4 +515,3 @@ export default function BXCore() {
     </div>
   );
 }
-```:'center
