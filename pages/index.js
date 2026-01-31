@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
 /**
  * BX CORE DASHBOARD - FINAL RELEASE (v25.0.0)
@@ -13,6 +14,7 @@ export default function BXCore() {
   const [activeTab, setActiveTab] = useState('create');
   const [isLoading, setIsLoading] = useState(false);
   const [notify, setNotify] = useState({ show: false, msg: '', type: 'info' });
+  const [fromGoogle, setFromGoogle] = useState(false);
 
   // --- [AUTH DATA] ---
   const [email, setEmail] = useState('');
@@ -164,6 +166,27 @@ export default function BXCore() {
     window.location.reload();
   };
 
+  const jwtDecode = (token) => {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(window.atob(base64));
+  };
+
+  const handleGoogleSuccess = (credentialResponse) => {
+    const userObject = jwtDecode(credentialResponse.credential);
+    if (!userObject.email_verified) return triggerNotify("EMAIL NOT VERIFIED", "error");
+    const googleEmail = userObject.email;
+    if (!googleEmail.endsWith('@gmail.com')) return triggerNotify("ONLY GMAIL ALLOWED", "error");
+    setEmail(googleEmail);
+    const users = JSON.parse(localStorage.getItem('bx_users_final') || '[]');
+    if (users.find(u => u.email === googleEmail)) {
+      setFromGoogle(true);
+      setView('login');
+    } else {
+      setView('pin_setup');
+    }
+  };
+
   // --- [CORE FUNCTIONALITY: IMAGE & LINK] ---
 
   const handleHopChange = (index, value) => {
@@ -275,65 +298,74 @@ export default function BXCore() {
 
   if (view !== 'dashboard') {
     return (
-      <div style={styles.container}>
-        <div style={styles.centerBox}>
-          <div style={styles.authCard} className="fade-in">
-            <h1 style={styles.title}>BX</h1>
-            <p style={styles.subtitle}>Secure Access Gateway v25</p>
+      <GoogleOAuthProvider clientId="YOUR_CLIENT_ID.apps.googleusercontent.com">
+        <div style={styles.container}>
+          <div style={styles.centerBox}>
+            <div style={styles.authCard} className="fade-in">
+              <h1 style={styles.title}>BX</h1>
+              <p style={styles.subtitle}>Secure Access Gateway v25</p>
 
-            {view === 'landing' && (
-              <>
-                <button style={styles.btn(true)} onClick={() => window.open('https://accounts.google.com/signup', '_blank')}>CREATE ACCOUNT WITH GOOGLE</button>
-                <button style={styles.btn(true)} onClick={() => setView('register')}>REQUEST ACCESS</button>
-                <button style={styles.btn(false)} onClick={() => setView('login')}>MEMBER LOGIN</button>
-              </>
-            )}
+              {view === 'landing' && (
+                <>
+                  <button style={styles.btn(true)} onClick={() => setView('register')}>REQUEST ACCESS</button>
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => triggerNotify("GOOGLE LOGIN FAILED", "error")}
+                    text="signup_with"
+                    shape="rectangular"
+                    logo_alignment="left"
+                  />
+                  <button style={styles.btn(false)} onClick={() => setView('login')}>MEMBER LOGIN</button>
+                </>
+              )}
 
-            {view === 'register' && (
-              <>
-                <input style={styles.input} placeholder="Enter Gmail Address" onChange={e => setEmail(e.target.value)} />
-                <button style={styles.btn(true)} onClick={sendGmailOtp} disabled={isLoading}>
-                  {isLoading ? 'CONTACTING SERVER...' : 'SEND VERIFICATION CODE'}
-                </button>
-                <p onClick={() => setView('landing')} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>CANCEL</p>
-              </>
-            )}
+              {view === 'register' && (
+                <>
+                  <input style={styles.input} placeholder="Enter Gmail Address" onChange={e => setEmail(e.target.value)} />
+                  <button style={styles.btn(true)} onClick={sendGmailOtp} disabled={isLoading}>
+                    {isLoading ? 'CONTACTING SERVER...' : 'SEND VERIFICATION CODE'}
+                  </button>
+                  <p onClick={() => setView('landing')} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>CANCEL</p>
+                </>
+              )}
 
-            {view === 'otp' && (
-              <>
-                <p style={{color:theme.success, textAlign:'center', fontSize:'12px', marginBottom:'20px'}}>CODE SENT TO {email}</p>
-                <input style={{...styles.input, textAlign:'center', letterSpacing:'5px', fontSize:'20px'}} placeholder="------" maxLength={6} onChange={e => setOtpInput(e.target.value)} />
-                <button style={styles.btn(true)} onClick={verifyOtp}>VERIFY IDENTITY</button>
-              </>
-            )}
+              {view === 'otp' && (
+                <>
+                  <p style={{color:theme.success, textAlign:'center', fontSize:'12px', marginBottom:'20px'}}>CODE SENT TO {email}</p>
+                  <input style={{...styles.input, textAlign:'center', letterSpacing:'5px', fontSize:'20px'}} placeholder="------" maxLength={6} onChange={e => setOtpInput(e.target.value)} />
+                  <button style={styles.btn(true)} onClick={verifyOtp}>VERIFY IDENTITY</button>
+                </>
+              )}
 
-            {view === 'pin_setup' && (
-              <>
-                <p style={{color:theme.text, textAlign:'center', fontSize:'12px', marginBottom:'20px'}}>SET YOUR MASTER PIN</p>
-                <input style={styles.input} type="password" placeholder="PIN (4+ digits)" onChange={e => setPin(e.target.value)} />
-                <button style={styles.btn(true)} onClick={registerUser}>INITIALIZE ACCOUNT</button>
-              </>
-            )}
+              {view === 'pin_setup' && (
+                <>
+                  <p style={{color:theme.text, textAlign:'center', fontSize:'12px', marginBottom:'20px'}}>SET YOUR MASTER PIN</p>
+                  <input style={styles.input} type="password" placeholder="PIN (4+ digits)" onChange={e => setPin(e.target.value)} />
+                  <button style={styles.btn(true)} onClick={registerUser}>INITIALIZE ACCOUNT</button>
+                </>
+              )}
 
-            {view === 'login' && (
-              <>
-                <input style={styles.input} placeholder="Gmail" onChange={e => setEmail(e.target.value)} />
-                <input style={styles.input} type="password" placeholder="Master PIN" onChange={e => setPin(e.target.value)} />
-                <button style={styles.btn(true)} onClick={loginUser}>AUTHENTICATE</button>
-                <p onClick={() => setView('landing')} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>BACK</p>
-              </>
-            )}
+              {view === 'login' && (
+                <>
+                  {!fromGoogle && <input style={styles.input} placeholder="Gmail" onChange={e => setEmail(e.target.value)} />}
+                  {fromGoogle && <p style={{color:theme.text, textAlign:'center'}}>Authenticating as {email}</p>}
+                  <input style={styles.input} type="password" placeholder="Master PIN" onChange={e => setPin(e.target.value)} />
+                  <button style={styles.btn(true)} onClick={loginUser}>AUTHENTICATE</button>
+                  <p onClick={() => {setFromGoogle(false); setView('landing')}} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>BACK</p>
+                </>
+              )}
+            </div>
           </div>
+          {/* TOAST NOTIFICATION */}
+          {notify.show && <div style={{position:'fixed', bottom:'30px', right:'30px', background: notify.type === 'error' ? theme.error : theme.primary, color:'#fff', padding:'12px 24px', borderRadius:'8px', fontSize:'13px', fontWeight:'800', animation: 'slideUp 0.3s'}}>{notify.msg}</div>}
+          <style jsx global>{`
+            .fade-in { animation: fadeIn 0.5s ease; }
+            .pulse { animation: pulse 2s infinite; color: ${theme.primary}; font-weight: 900; letter-spacing: 5px; }
+            @keyframes fadeIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
+            @keyframes pulse { 0%{opacity:0.5} 50%{opacity:1} 100%{opacity:0.5} }
+          `}</style>
         </div>
-        {/* TOAST NOTIFICATION */}
-        {notify.show && <div style={{position:'fixed', bottom:'30px', right:'30px', background: notify.type === 'error' ? theme.error : theme.primary, color:'#fff', padding:'12px 24px', borderRadius:'8px', fontSize:'13px', fontWeight:'800', animation: 'slideUp 0.3s'}}>{notify.msg}</div>}
-        <style jsx global>{`
-          .fade-in { animation: fadeIn 0.5s ease; }
-          .pulse { animation: pulse 2s infinite; color: ${theme.primary}; font-weight: 900; letter-spacing: 5px; }
-          @keyframes fadeIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
-          @keyframes pulse { 0%{opacity:0.5} 50%{opacity:1} 100%{opacity:0.5} }
-        `}</style>
-      </div>
+      </GoogleOAuthProvider>
     );
   }
 
@@ -516,4 +548,3 @@ export default function BXCore() {
     </div>
   );
 }
-```Disable all
