@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+import React, { useState, useEffect } from 'react';
+import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
 
 /**
  * BX CORE DASHBOARD - FINAL RELEASE (v25.0.0)
@@ -10,11 +10,10 @@ import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
 export default function BXCore() {
   // --- [VIEW & UI STATE] ---
-  const [view, setView] = useState('loading_core'); // landing, register, otp, pin, login, dashboard
+  const [view, setView] = useState('loading_core'); // landing, register, otp, pin_setup, login, dashboard
   const [activeTab, setActiveTab] = useState('create');
   const [isLoading, setIsLoading] = useState(false);
   const [notify, setNotify] = useState({ show: false, msg: '', type: 'info' });
-  const [fromGoogle, setFromGoogle] = useState(false);
 
   // --- [AUTH DATA] ---
   const [email, setEmail] = useState('');
@@ -166,26 +165,24 @@ export default function BXCore() {
     window.location.reload();
   };
 
-  const jwtDecode = (token) => {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(window.atob(base64));
-  };
-
-  const handleGoogleSuccess = (credentialResponse) => {
-    const userObject = jwtDecode(credentialResponse.credential);
-    if (!userObject.email_verified) return triggerNotify("EMAIL NOT VERIFIED", "error");
-    const googleEmail = userObject.email;
-    if (!googleEmail.endsWith('@gmail.com')) return triggerNotify("ONLY GMAIL ALLOWED", "error");
-    setEmail(googleEmail);
-    const users = JSON.parse(localStorage.getItem('bx_users_final') || '[]');
-    if (users.find(u => u.email === googleEmail)) {
-      setFromGoogle(true);
-      setView('login');
-    } else {
-      setView('pin_setup');
+  const googleSignUp = useGoogleLogin({
+    flow: 'implicit',
+    onSuccess: (response) => {
+      if (response.credential) {
+        const payload = JSON.parse(atob(response.credential.split('.')[1]));
+        setEmail(payload.email);
+        const users = JSON.parse(localStorage.getItem('bx_users_final') || '[]');
+        if (users.find(u => u.email === payload.email)) {
+          setView('login');
+        } else {
+          setView('pin_setup');
+        }
+      }
+    },
+    onError: () => {
+      triggerNotify("GOOGLE SIGN-UP FAILED", "error");
     }
-  };
+  });
 
   // --- [CORE FUNCTIONALITY: IMAGE & LINK] ---
 
@@ -298,7 +295,7 @@ export default function BXCore() {
 
   if (view !== 'dashboard') {
     return (
-      <GoogleOAuthProvider clientId="YOUR_CLIENT_ID.apps.googleusercontent.com">
+      <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID_HERE"> {/* Replace with your actual Google Client ID */}
         <div style={styles.container}>
           <div style={styles.centerBox}>
             <div style={styles.authCard} className="fade-in">
@@ -308,20 +305,14 @@ export default function BXCore() {
               {view === 'landing' && (
                 <>
                   <button style={styles.btn(true)} onClick={() => setView('register')}>REQUEST ACCESS</button>
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => triggerNotify("GOOGLE LOGIN FAILED", "error")}
-                    text="signup_with"
-                    shape="rectangular"
-                    logo_alignment="left"
-                  />
+                  <button style={styles.btn(true)} onClick={googleSignUp}>CREATE ACCOUNT WITH GOOGLE</button>
                   <button style={styles.btn(false)} onClick={() => setView('login')}>MEMBER LOGIN</button>
                 </>
               )}
 
               {view === 'register' && (
                 <>
-                  <input style={styles.input} placeholder="Enter Gmail Address" onChange={e => setEmail(e.target.value)} />
+                  <input style={styles.input} placeholder="Enter Gmail Address" value={email} onChange={e => setEmail(e.target.value)} />
                   <button style={styles.btn(true)} onClick={sendGmailOtp} disabled={isLoading}>
                     {isLoading ? 'CONTACTING SERVER...' : 'SEND VERIFICATION CODE'}
                   </button>
@@ -347,11 +338,10 @@ export default function BXCore() {
 
               {view === 'login' && (
                 <>
-                  {!fromGoogle && <input style={styles.input} placeholder="Gmail" onChange={e => setEmail(e.target.value)} />}
-                  {fromGoogle && <p style={{color:theme.text, textAlign:'center'}}>Authenticating as {email}</p>}
+                  <input style={styles.input} placeholder="Gmail" value={email} onChange={e => setEmail(e.target.value)} />
                   <input style={styles.input} type="password" placeholder="Master PIN" onChange={e => setPin(e.target.value)} />
                   <button style={styles.btn(true)} onClick={loginUser}>AUTHENTICATE</button>
-                  <p onClick={() => {setFromGoogle(false); setView('landing')}} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>BACK</p>
+                  <p onClick={() => setView('landing')} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>BACK</p>
                 </>
               )}
             </div>
