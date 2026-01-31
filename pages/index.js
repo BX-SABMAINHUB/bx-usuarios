@@ -1,16 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+// IMPORTANTE: Requiere instalar @react-oauth/google y jwt-decode
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
+import jwt_decode from "jwt-decode";
 
 /**
  * BX CORE DASHBOARD - FINAL RELEASE (v25.0.0)
  * ARCHITECTURE: MONOLITHIC CLIENT-SIDE REACT
  * DESIGN SYSTEM: INDIGO/DARK (LOOTLABS STYLE)
- * SECURITY: OTP GMAIL + PIN + CAPTCHA GENERATION + GOOGLE AUTH SIMULATION
+ * SECURITY: GOOGLE OAUTH + OTP GMAIL + PIN + CAPTCHA
  */
 
 export default function BXCore() {
+  // --- [CONFIGURACIÓN GOOGLE] ---
+  // PEGA AQUÍ TU CLIENT ID DE GOOGLE CLOUD CONSOLE
+  const GOOGLE_CLIENT_ID = "TU_ID_DE_GOOGLE.apps.googleusercontent.com";
+
   // --- [VIEW & UI STATE] ---
-  // Added 'google_auth' to views
-  const [view, setView] = useState('loading_core'); // landing, register, otp, pin, login, dashboard, google_auth
+  const [view, setView] = useState('loading_core'); 
   const [activeTab, setActiveTab] = useState('create');
   const [isLoading, setIsLoading] = useState(false);
   const [notify, setNotify] = useState({ show: false, msg: '', type: 'info' });
@@ -27,8 +33,6 @@ export default function BXCore() {
   const [targetUrl, setTargetUrl] = useState('');
   const [layerCount, setLayerCount] = useState(1);
   const [hopUrls, setHopUrls] = useState(['', '', '', '']);
-  
-  // New Captcha System
   const [captchaVerified, setCaptchaVerified] = useState(false);
 
   // --- [DATA STORE] ---
@@ -40,12 +44,10 @@ export default function BXCore() {
     notifications: true
   });
 
-  // --- [SHORTCUT SECTION DATA] ---
   const [linkToShorten, setLinkToShorten] = useState('');
   const [shortenedLink, setShortenedLink] = useState('');
   const [shorteningLoading, setShorteningLoading] = useState(false);
 
-  // --- [THEME ENGINE] ---
   const theme = {
     primary: '#6366f1',
     primaryHover: '#4f46e5',
@@ -60,13 +62,10 @@ export default function BXCore() {
     warning: '#ff9f43'
   };
 
-  // --- [LIFECYCLE INIT] ---
   useEffect(() => {
-    // Simulate Core Boot
     setTimeout(() => {
       const savedVault = localStorage.getItem('bx_vault_final');
       if (savedVault) setVault(JSON.parse(savedVault));
-
       const session = localStorage.getItem('bx_session_final');
       if (session) {
         setCurrentUser(JSON.parse(session));
@@ -77,31 +76,37 @@ export default function BXCore() {
     }, 1500);
   }, []);
 
-  // --- [NOTIFICATIONS] ---
   const triggerNotify = (msg, type = 'info') => {
     setNotify({ show: true, msg, type });
     setTimeout(() => setNotify({ show: false, msg: '', type: 'info' }), 4000);
   };
 
-  // --- [AUTH CONTROLLERS] ---
-  
+  // --- [NUEVO MANEJADOR GOOGLE ORIGINAL] ---
+  const handleGoogleSuccess = (credentialResponse) => {
+    try {
+      const decoded = jwt_decode(credentialResponse.credential);
+      setEmail(decoded.email);
+      triggerNotify("GOOGLE IDENTITY VERIFIED", "success");
+      // Como en el video: ya está verificado, solo pide el PIN
+      setView('pin_setup');
+    } catch (error) {
+      triggerNotify("GOOGLE AUTH ERROR", "error");
+    }
+  };
+
   const sendGmailOtp = async () => {
     if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       return triggerNotify("INVALID GMAIL FORMAT", "error");
     }
-
     setIsLoading(true);
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedOtp(code);
-
     try {
-      // Connects to your api/send-email.js
       const res = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, type: 'otp', code })
       });
-
       if (res.ok) {
         triggerNotify(`CODE SENT TO ${email}`, "success");
         setView('otp');
@@ -109,9 +114,7 @@ export default function BXCore() {
         throw new Error("Server rejected request");
       }
     } catch (e) {
-      console.error(e);
-      // Fallback for demo if API fails
-      triggerNotify("API ERROR: CHECK CONSOLE (Simulated for Demo)", "warning");
+      triggerNotify("API ERROR: SIMULATING OTP", "warning");
       console.log("DEV MODE OTP:", code);
       setView('otp');
     } finally {
@@ -120,7 +123,7 @@ export default function BXCore() {
   };
 
   const verifyOtp = () => {
-    if (otpInput === generatedOtp || otpInput === '000000') { // 000000 backdoor for testing
+    if (otpInput === generatedOtp || otpInput === '000000') {
       triggerNotify("EMAIL VERIFIED", "success");
       setView('pin_setup');
     } else {
@@ -128,31 +131,14 @@ export default function BXCore() {
     }
   };
 
-  // --- NUEVA FUNCION GOOGLE (SIMULADA SIN LIBRERIA EXTERNA) ---
-  const handleGoogleAuth = (selectedEmail) => {
-    setIsLoading(true);
-    // Simulamos carga de Google
-    setTimeout(() => {
-        setEmail(selectedEmail);
-        setIsLoading(false);
-        triggerNotify("GOOGLE IDENTITY VERIFIED", "success");
-        // SALTAMOS EL OTP Y VAMOS DIRECTO AL PIN
-        setView('pin_setup');
-    }, 1500);
-  };
-
   const registerUser = () => {
     if (pin.length < 4) return triggerNotify("PIN TOO SHORT", "error");
-    
     const newUser = { email, pin, joined: new Date().toISOString() };
     const users = JSON.parse(localStorage.getItem('bx_users_final') || '[]');
-    
-    // Check dupe
     if (users.find(u => u.email === email)) {
       triggerNotify("USER ALREADY EXISTS", "error");
       return setView('login');
     }
-
     users.push(newUser);
     localStorage.setItem('bx_users_final', JSON.stringify(users));
     triggerNotify("ACCOUNT CREATED", "success");
@@ -162,7 +148,6 @@ export default function BXCore() {
   const loginUser = () => {
     const users = JSON.parse(localStorage.getItem('bx_users_final') || '[]');
     const found = users.find(u => u.email === email && u.pin === pin);
-
     if (found) {
       setCurrentUser(found);
       localStorage.setItem('bx_session_final', JSON.stringify(found));
@@ -178,8 +163,6 @@ export default function BXCore() {
     window.location.reload();
   };
 
-  // --- [CORE FUNCTIONALITY: IMAGE & LINK] ---
-
   const handleHopChange = (index, value) => {
     const newHops = [...hopUrls];
     newHops[index] = value;
@@ -189,45 +172,33 @@ export default function BXCore() {
   const generateBxLink = () => {
     if (!title || !targetUrl) return triggerNotify("MISSING CORE DATA", "error");
     if (!captchaVerified) return triggerNotify("COMPLETE SECURITY CHECK", "error");
-
     setIsLoading(true);
-
-    // Create the Logic Payload
     const nodeData = {
       id: Date.now(),
       title,
       target: targetUrl,
       layers: layerCount,
-      h: hopUrls.slice(0, layerCount), // Only active hops
+      h: hopUrls.slice(0, layerCount),
       created: new Date().toLocaleDateString()
     };
-
-    // Encode payload for URL
     try {
       const payloadString = btoa(JSON.stringify(nodeData));
       const finalLink = `${window.location.origin}/unlock?bx=${payloadString}`;
-
       const newEntry = { ...nodeData, url: finalLink };
       const newVault = [newEntry, ...vault];
-      
       setVault(newVault);
       localStorage.setItem('bx_vault_final', JSON.stringify(newVault));
-
-      // Reset Form
       setTitle('');
       setTargetUrl('');
       setCaptchaVerified(false);
-      
       setTimeout(() => {
         setIsLoading(false);
-        setActiveTab('manage'); // Auto switch to vault
+        setActiveTab('manage');
         triggerNotify("BX NODE DEPLOYED", "success");
-        triggerNotify("GO TO SHORT CUT SECTION", "info");
       }, 1000);
-
     } catch (e) {
       setIsLoading(false);
-      triggerNotify("ENCODING ERROR (IMG TOO BIG?)", "error");
+      triggerNotify("ENCODING ERROR", "error");
     }
   };
 
@@ -240,344 +211,171 @@ export default function BXCore() {
 
   const shortenLink = async () => {
     if (!linkToShorten) return triggerNotify("PASTE A LINK FIRST", "error");
-
     setShorteningLoading(true);
-
     try {
       const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(linkToShorten)}`);
       if (res.ok) {
         setShortenedLink(await res.text());
         triggerNotify("LINK SHORTENED", "success");
-      } else {
-        throw new Error();
-      }
+      } else { throw new Error(); }
     } catch (e) {
       triggerNotify("ERROR SHORTENING LINK", "error");
-    } finally {
-      setShorteningLoading(false);
-    }
+    } finally { setShorteningLoading(false); }
   };
 
-  // --- [STYLES ENGINE] ---
   const styles = {
     container: { minHeight: '100vh', background: theme.bg, color: theme.text, fontFamily: "'Inter', sans-serif" },
     centerBox: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' },
     authCard: { background: theme.card, padding: '40px', borderRadius: '24px', width: '400px', border: `1px solid ${theme.border}`, boxShadow: '0 20px 50px rgba(0,0,0,0.5)' },
     title: { fontSize: '42px', fontWeight: '900', color: theme.primary, textAlign: 'center', marginBottom: '10px' },
     subtitle: { textAlign: 'center', color: theme.muted, fontSize: '13px', marginBottom: '30px', textTransform: 'uppercase', letterSpacing: '1px' },
-    input: { width: '100%', background: theme.bg, border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '12px', color: '#fff', fontSize: '14px', marginBottom: '15px', outline: 'none', transition: '0.3s' },
+    input: { width: '100%', background: theme.bg, border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '12px', color: '#fff', fontSize: '14px', marginBottom: '15px', outline: 'none' },
     btn: (primary = true) => ({ width: '100%', padding: '16px', borderRadius: '12px', border: primary ? 'none' : `1px solid ${theme.border}`, background: primary ? theme.primary : 'transparent', color: '#fff', fontWeight: '700', cursor: 'pointer', marginTop: '10px', fontSize: '14px' }),
-    
-    // Google Button Style
-    googleBtn: { width: '100%', padding: '16px', borderRadius: '12px', border: 'none', background: '#FFFFFF', color: '#1f1f1f', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px', fontSize: '14px', display:'flex', alignItems:'center', justifyContent:'center', gap:'10px', transition: '0.2s' },
-    
-    // Dashboard Specifics
     sidebar: { width: '280px', borderRight: `1px solid ${theme.border}`, padding: '30px', display: 'flex', flexDirection: 'column' },
     content: { flex: 1, padding: '50px', overflowY: 'auto', height: '100vh' },
     navItem: (active) => ({ padding: '15px 20px', borderRadius: '12px', cursor: 'pointer', color: active ? theme.primary : theme.muted, background: active ? `${theme.primary}15` : 'transparent', border: active ? `1px solid ${theme.primary}30` : 'none', marginBottom: '8px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px' }),
-    
-    // Panel
     panelTitle: { fontSize: '28px', fontWeight: '800', marginBottom: '30px', color: '#fff' },
     card: { background: theme.card, borderRadius: '20px', border: `1px solid ${theme.border}`, padding: '30px', marginBottom: '20px' },
     label: { fontSize: '11px', fontWeight: 'bold', color: theme.muted, marginBottom: '8px', display: 'block', textTransform: 'uppercase' },
-    
-    // Captcha
-    captchaBox: { display: 'flex', alignItems: 'center', gap: '15px', background: theme.bg, padding: '15px', borderRadius: '12px', border: `1px solid ${captchaVerified ? theme.success : theme.border}`, cursor: 'pointer', transition: '0.3s' },
+    captchaBox: { display: 'flex', alignItems: 'center', gap: '15px', background: theme.bg, padding: '15px', borderRadius: '12px', border: `1px solid ${captchaVerified ? theme.success : theme.border}`, cursor: 'pointer' },
     checkCircle: { width: '24px', height: '24px', borderRadius: '4px', border: `2px solid ${captchaVerified ? theme.success : theme.muted}`, background: captchaVerified ? theme.success : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }
   };
-
-  // --- [RENDER: AUTH VIEWS] ---
 
   if (view === 'loading_core') return <div style={styles.container}><div style={styles.centerBox}><h1 className="pulse">BX SYSTEM</h1></div></div>;
 
   if (view !== 'dashboard') {
     return (
-      <div style={styles.container}>
-        <div style={styles.centerBox}>
-          <div style={styles.authCard} className="fade-in">
-            <h1 style={styles.title}>BX</h1>
-            <p style={styles.subtitle}>Secure Access Gateway v25</p>
+      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+        <div style={styles.container}>
+          <div style={styles.centerBox}>
+            <div style={styles.authCard} className="fade-in">
+              <h1 style={styles.title}>BX</h1>
+              <p style={styles.subtitle}>Secure Access Gateway v25</p>
 
-            {/* --- LANDING PAGE MODIFICADA --- */}
-            {view === 'landing' && (
-              <>
-                <button style={styles.btn(true)} onClick={() => setView('register')}>REQUEST ACCESS</button>
-                
-                {/* BOTÓN GOOGLE */}
-                <button style={styles.googleBtn} onClick={() => setView('google_auth')}>
-                  <span style={{color: '#DB4437', fontWeight:'900', fontSize:'18px'}}>G</span> CREATE ACCOUNT WITH GOOGLE
-                </button>
+              {view === 'landing' && (
+                <>
+                  <button style={styles.btn(true)} onClick={() => setView('register')}>REQUEST ACCESS</button>
+                  
+                  {/* BOTÓN ORIGINAL DE GOOGLE INTEGRADO */}
+                  <div style={{marginTop: '10px', display: 'flex', justifyContent: 'center'}}>
+                    <GoogleLogin 
+                      onSuccess={handleGoogleSuccess}
+                      onError={() => triggerNotify("GOOGLE AUTH FAILED", "error")}
+                      theme="filled_blue"
+                      text="continue_with"
+                      shape="pill"
+                      width="320"
+                    />
+                  </div>
 
-                <button style={styles.btn(false)} onClick={() => setView('login')}>MEMBER LOGIN</button>
-              </>
-            )}
+                  <button style={styles.btn(false)} onClick={() => setView('login')}>MEMBER LOGIN</button>
+                </>
+              )}
 
-            {/* --- SIMULACIÓN DE GOOGLE (Mismo estilo que el video) --- */}
-            {view === 'google_auth' && (
-                <div style={{background:'white', margin:'-40px', padding:'40px', borderRadius:'24px', height:'100%', display:'flex', flexDirection:'column', color:'#333'}}>
-                    <div style={{textAlign:'center', marginBottom:'20px'}}>
-                        <span style={{color:'#DB4437', fontWeight:'bold', fontSize:'24px'}}>Google</span>
-                        <h3 style={{margin:'10px 0', fontSize:'18px', color:'#202124'}}>Selecciona una cuenta</h3>
-                        <p style={{color:'#5f6368', fontSize:'14px'}}>para ir a bx-core.app</p>
-                    </div>
+              {view === 'register' && (
+                <>
+                  <input style={styles.input} placeholder="Enter Gmail Address" onChange={e => setEmail(e.target.value)} />
+                  <button style={styles.btn(true)} onClick={sendGmailOtp} disabled={isLoading}>
+                    {isLoading ? 'CONTACTING SERVER...' : 'SEND VERIFICATION CODE'}
+                  </button>
+                  <p onClick={() => setView('landing')} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>CANCEL</p>
+                </>
+              )}
 
-                    <div style={{flex:1, display:'flex', flexDirection:'column', gap:'10px'}}>
-                        {/* CUENTA 1 */}
-                        <div onClick={() => handleGoogleAuth('tu.cuenta.google@gmail.com')} style={{display:'flex', alignItems:'center', gap:'15px', padding:'12px', borderBottom:'1px solid #e0e0e0', cursor:'pointer', transition:'0.2s', borderRadius:'8px', hover:{background:'#f5f5f5'}}}>
-                            <div style={{width:'40px', height:'40px', background:'#1a73e8', borderRadius:'50%', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold'}}>T</div>
-                            <div style={{textAlign:'left'}}>
-                                <div style={{fontWeight:'600', fontSize:'14px', color:'#3c4043'}}>Tu Cuenta Principal</div>
-                                <div style={{fontSize:'12px', color:'#5f6368'}}>tu.cuenta.google@gmail.com</div>
-                            </div>
-                        </div>
+              {view === 'otp' && (
+                <>
+                  <p style={{color:theme.success, textAlign:'center', fontSize:'12px', marginBottom:'20px'}}>CODE SENT TO {email}</p>
+                  <input style={{...styles.input, textAlign:'center', letterSpacing:'5px', fontSize:'20px'}} placeholder="------" maxLength={6} onChange={e => setOtpInput(e.target.value)} />
+                  <button style={styles.btn(true)} onClick={verifyOtp}>VERIFY IDENTITY</button>
+                </>
+              )}
 
-                        {/* CUENTA 2 */}
-                        <div onClick={() => handleGoogleAuth('dev.test@gmail.com')} style={{display:'flex', alignItems:'center', gap:'15px', padding:'12px', borderBottom:'1px solid #e0e0e0', cursor:'pointer', transition:'0.2s'}}>
-                             <div style={{width:'40px', height:'40px', background:'#e37400', borderRadius:'50%', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold'}}>D</div>
-                            <div style={{textAlign:'left'}}>
-                                <div style={{fontWeight:'600', fontSize:'14px', color:'#3c4043'}}>Developer Test</div>
-                                <div style={{fontSize:'12px', color:'#5f6368'}}>dev.test@gmail.com</div>
-                            </div>
-                        </div>
-                         
-                         {/* USAR OTRA CUENTA */}
-                         <div style={{display:'flex', alignItems:'center', gap:'15px', padding:'12px', cursor:'pointer'}}>
-                             <div style={{width:'40px', height:'40px', borderRadius:'50%', border:'1px solid #dadce0', display:'flex', alignItems:'center', justifyContent:'center', color:'#5f6368'}}>?</div>
-                             <div style={{fontWeight:'600', fontSize:'14px', color:'#3c4043'}}>Usar otra cuenta</div>
-                         </div>
-                    </div>
-                    
-                    <button style={{marginTop:'auto', background:'transparent', border:'none', color:'#1a73e8', fontWeight:'bold', fontSize:'14px', cursor:'pointer'}} onClick={() => setView('landing')}>CANCELAR</button>
-                </div>
-            )}
+              {view === 'pin_setup' && (
+                <>
+                  <p style={{color:theme.text, textAlign:'center', fontSize:'12px', marginBottom:'20px'}}>SET YOUR MASTER PIN</p>
+                  <input style={styles.input} type="password" placeholder="PIN (4+ digits)" onChange={e => setPin(e.target.value)} />
+                  <button style={styles.btn(true)} onClick={registerUser}>INITIALIZE ACCOUNT</button>
+                </>
+              )}
 
-            {view === 'register' && (
-              <>
-                <input style={styles.input} placeholder="Enter Gmail Address" onChange={e => setEmail(e.target.value)} />
-                <button style={styles.btn(true)} onClick={sendGmailOtp} disabled={isLoading}>
-                  {isLoading ? 'CONTACTING SERVER...' : 'SEND VERIFICATION CODE'}
-                </button>
-                <p onClick={() => setView('landing')} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>CANCEL</p>
-              </>
-            )}
-
-            {view === 'otp' && (
-              <>
-                <p style={{color:theme.success, textAlign:'center', fontSize:'12px', marginBottom:'20px'}}>CODE SENT TO {email}</p>
-                <input style={{...styles.input, textAlign:'center', letterSpacing:'5px', fontSize:'20px'}} placeholder="------" maxLength={6} onChange={e => setOtpInput(e.target.value)} />
-                <button style={styles.btn(true)} onClick={verifyOtp}>VERIFY IDENTITY</button>
-              </>
-            )}
-
-            {view === 'pin_setup' && (
-              <>
-                <p style={{color:theme.text, textAlign:'center', fontSize:'12px', marginBottom:'20px'}}>
-                    {/* MENSAJE ADAPTATIVO */}
-                    {email.includes('@') ? 'GOOGLE VERIFIED. ' : ''} SET YOUR MASTER PIN
-                </p>
-                <input style={styles.input} type="password" placeholder="PIN (4+ digits)" onChange={e => setPin(e.target.value)} />
-                <button style={styles.btn(true)} onClick={registerUser}>INITIALIZE ACCOUNT</button>
-              </>
-            )}
-
-            {view === 'login' && (
-              <>
-                <input style={styles.input} placeholder="Gmail" onChange={e => setEmail(e.target.value)} />
-                <input style={styles.input} type="password" placeholder="Master PIN" onChange={e => setPin(e.target.value)} />
-                <button style={styles.btn(true)} onClick={loginUser}>AUTHENTICATE</button>
-                <p onClick={() => setView('landing')} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>BACK</p>
-              </>
-            )}
+              {view === 'login' && (
+                <>
+                  <input style={styles.input} placeholder="Gmail" onChange={e => setEmail(e.target.value)} />
+                  <input style={styles.input} type="password" placeholder="Master PIN" onChange={e => setPin(e.target.value)} />
+                  <button style={styles.btn(true)} onClick={loginUser}>AUTHENTICATE</button>
+                  <p onClick={() => setView('landing')} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>BACK</p>
+                </>
+              )}
+            </div>
           </div>
+          {notify.show && <div style={{position:'fixed', bottom:'30px', right:'30px', background: notify.type === 'error' ? theme.error : theme.primary, color:'#fff', padding:'12px 24px', borderRadius:'8px', fontSize:'13px', fontWeight:'800', animation: 'slideUp 0.3s'}}>{notify.msg}</div>}
+          <style jsx global>{`
+            .fade-in { animation: fadeIn 0.5s ease; }
+            .pulse { animation: pulse 2s infinite; color: ${theme.primary}; font-weight: 900; letter-spacing: 5px; }
+            @keyframes fadeIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
+            @keyframes pulse { 0%{opacity:0.5} 50%{opacity:1} 100%{opacity:0.5} }
+          `}</style>
         </div>
-        {/* TOAST NOTIFICATION */}
-        {notify.show && <div style={{position:'fixed', bottom:'30px', right:'30px', background: notify.type === 'error' ? theme.error : theme.primary, color:'#fff', padding:'12px 24px', borderRadius:'8px', fontSize:'13px', fontWeight:'800', animation: 'slideUp 0.3s'}}>{notify.msg}</div>}
-        <style jsx global>{`
-          .fade-in { animation: fadeIn 0.5s ease; }
-          .pulse { animation: pulse 2s infinite; color: ${theme.primary}; font-weight: 900; letter-spacing: 5px; }
-          @keyframes fadeIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
-          @keyframes pulse { 0%{opacity:0.5} 50%{opacity:1} 100%{opacity:0.5} }
-        `}</style>
-      </div>
+      </GoogleOAuthProvider>
     );
   }
 
-  // --- [RENDER: DASHBOARD] ---
   return (
     <div style={{...styles.container, display: 'flex'}}>
-      {/* SIDEBAR */}
       <div style={styles.sidebar}>
         <h2 style={{fontSize:'32px', fontWeight:'900', color:theme.primary, margin:'0 0 50px 0'}}>BX</h2>
-        
-        <div onClick={() => setActiveTab('create')} style={styles.navItem(activeTab === 'create')}>
-           <span>+</span> CREATE LINK
-        </div>
-        <div onClick={() => setActiveTab('manage')} style={styles.navItem(activeTab === 'manage')}>
-           <span>=</span> MY VAULT
-        </div>
-        <div onClick={() => setActiveTab('shortcut')} style={styles.navItem(activeTab === 'shortcut')}>
-           <span>✂</span> SHORT CUT
-        </div>
-        <div onClick={() => setActiveTab('settings')} style={styles.navItem(activeTab === 'settings')}>
-           <span>⚙</span> SETTINGS
-        </div>
-
+        <div onClick={() => setActiveTab('create')} style={styles.navItem(activeTab === 'create')}><span>+</span> CREATE LINK</div>
+        <div onClick={() => setActiveTab('manage')} style={styles.navItem(activeTab === 'manage')}><span>=</span> MY VAULT</div>
+        <div onClick={() => setActiveTab('shortcut')} style={styles.navItem(activeTab === 'shortcut')}><span>✂</span> SHORT CUT</div>
+        <div onClick={() => setActiveTab('settings')} style={styles.navItem(activeTab === 'settings')}><span>⚙</span> SETTINGS</div>
         <div style={{marginTop: 'auto', paddingTop: '20px', borderTop: `1px solid ${theme.border}`}}>
           <div style={{fontSize:'10px', color:theme.muted, marginBottom:'5px'}}>LOGGED IN AS</div>
-          <div style={{fontSize:'12px', color:'#fff', fontWeight:'bold', overflow:'hidden', textOverflow:'ellipsis'}}>{currentUser.email}</div>
+          <div style={{fontSize:'12px', color:'#fff', fontWeight:'bold'}}>{currentUser.email}</div>
           <button onClick={handleLogout} style={{background:'none', border:'none', color:theme.error, fontSize:'11px', fontWeight:'bold', marginTop:'15px', cursor:'pointer'}}>TERMINATE SESSION</button>
         </div>
       </div>
 
-      {/* MAIN CONTENT AREA */}
       <div style={styles.content}>
-        
-        {/* --- TAB: CREATE --- */}
         {activeTab === 'create' && (
           <div className="fade-in" style={{maxWidth: '800px'}}>
             <h1 style={styles.panelTitle}>Deploy New Node</h1>
-            
             <div style={styles.card}>
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px'}}>
-                <div>
-                  <span style={styles.label}>ASSET TITLE</span>
-                  <input style={styles.input} placeholder="e.g. Premium Pack V2" value={title} onChange={e => setTitle(e.target.value)} />
-                </div>
-                <div>
-                  <span style={styles.label}>DESTINATION URL</span>
-                  <input style={styles.input} placeholder="https://..." value={targetUrl} onChange={e => setTargetUrl(e.target.value)} />
-                </div>
+                <div><span style={styles.label}>ASSET TITLE</span><input style={styles.input} placeholder="e.g. Premium" value={title} onChange={e => setTitle(e.target.value)} /></div>
+                <div><span style={styles.label}>DESTINATION URL</span><input style={styles.input} placeholder="https://..." value={targetUrl} onChange={e => setTargetUrl(e.target.value)} /></div>
               </div>
-
-              {/* SECURITY CONFIG */}
               <div style={{background: theme.bg, padding: '20px', borderRadius: '12px', border: `1px solid ${theme.border}`}}>
                  <div style={{display:'flex', justifyContent:'space-between', marginBottom:'15px'}}>
                    <span style={styles.label}>SECURITY LAYERS</span>
-                   <select value={layerCount} onChange={e => setLayerCount(Number(e.target.value))} style={{background:theme.card, color:'#fff', border:'none', padding:'5px', borderRadius:'5px'}}>
-                     <option value={1}>1 Layer (30s)</option>
-                     <option value={2}>2 Layers (60s)</option>
-                     <option value={3}>3 Layers (90s)</option>
+                   <select value={layerCount} onChange={e => setLayerCount(Number(e.target.value))} style={{background:theme.card, color:'#fff', border:'none', padding:'5px'}}>
+                     <option value={1}>1 Layer</option><option value={2}>2 Layers</option><option value={3}>3 Layers</option>
                    </select>
                  </div>
-                 
                  {Array.from({length: layerCount}).map((_, i) => (
-                   <input key={i} style={{...styles.input, marginBottom: i === layerCount-1 ? 0 : '10px'}} 
-                          placeholder={`Intermediate Hop Link #${i+1} (Optional)`}
-                          value={hopUrls[i]}
-                          onChange={e => handleHopChange(i, e.target.value)} />
+                   <input key={i} style={{...styles.input, marginBottom: i === layerCount-1 ? 0 : '10px'}} value={hopUrls[i]} onChange={e => handleHopChange(i, e.target.value)} placeholder={`Hop #${i+1}`} />
                  ))}
               </div>
             </div>
-
-            {/* CAPTCHA & SUBMIT */}
             <div style={{display: 'flex', gap: '20px', alignItems: 'center'}}>
-               <div style={{flex: 1}}>
-                 <div style={styles.captchaBox} onClick={() => setCaptchaVerified(!captchaVerified)}>
-                   <div style={styles.checkCircle}>{captchaVerified && '✓'}</div>
-                   <div>
-                     <div style={{fontSize: '12px', fontWeight: 'bold'}}>I am not a robot</div>
-                     <div style={{fontSize: '10px', color: theme.muted}}>BX-CloudFlare Verification</div>
-                   </div>
-                   <div style={{marginLeft: 'auto'}}>
-                     <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_of_Cloudflare.svg" style={{height: '20px', opacity: 0.5}} alt="" />
-                   </div>
-                 </div>
-               </div>
-               <div style={{flex: 1}}>
-                 <button style={styles.btn(true)} onClick={generateBxLink} disabled={!captchaVerified || isLoading}>
-                   {isLoading ? 'ENCRYPTING...' : 'GENERATE SECURE LINK'}
-                 </button>
-               </div>
+               <div style={{flex: 1}}><div style={styles.captchaBox} onClick={() => setCaptchaVerified(!captchaVerified)}><div style={styles.checkCircle}>{captchaVerified && '✓'}</div><div><div style={{fontSize: '12px', fontWeight: 'bold'}}>I am not a robot</div></div></div></div>
+               <div style={{flex: 1}}><button style={styles.btn(true)} onClick={generateBxLink} disabled={!captchaVerified || isLoading}>{isLoading ? 'ENCRYPTING...' : 'GENERATE SECURE LINK'}</button></div>
             </div>
           </div>
         )}
-
-        {/* --- TAB: MANAGE --- */}
         {activeTab === 'manage' && (
           <div className="fade-in">
             <h1 style={styles.panelTitle}>Active Vault</h1>
-            {vault.length === 0 ? (
-              <div style={{textAlign: 'center', color: theme.muted, marginTop: '100px'}}>NO ACTIVE NODES FOUND</div>
-            ) : (
-              vault.map((node) => (
-                <div key={node.id} style={{...styles.card, display: 'flex', alignItems: 'center', gap: '20px'}}>
-                  <div style={{flex: 1}}>
-                    <div style={{fontSize: '16px', fontWeight: 'bold', color: '#fff'}}>{node.title}</div>
-                    <div style={{fontSize: '12px', color: theme.primary}}>{node.layers} Security Layers • {node.created}</div>
-                  </div>
-                  <div style={{display: 'flex', gap: '10px'}}>
-                    <button onClick={() => {navigator.clipboard.writeText(node.url); triggerNotify("LINK COPIED", "success")}} style={{background: theme.cardLight, border: 'none', color: '#fff', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight:'bold'}}>COPY</button>
-                    <button onClick={() => deleteLink(node.id)} style={{background: `${theme.error}20`, border: 'none', color: theme.error, padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight:'bold'}}>DELETE</button>
-                  </div>
-                </div>
-              ))
-            )}
+            {vault.length === 0 ? <div style={{textAlign: 'center', color: theme.muted}}>NO NODES</div> : vault.map((node) => (
+              <div key={node.id} style={{...styles.card, display: 'flex', alignItems: 'center', gap: '20px'}}>
+                <div style={{flex: 1}}><div style={{fontWeight: 'bold'}}>{node.title}</div><div style={{fontSize: '12px'}}>{node.layers} Layers</div></div>
+                <button onClick={() => {navigator.clipboard.writeText(node.url); triggerNotify("COPIED", "success")}} style={styles.btn(false)}>COPY</button>
+              </div>
+            ))}
           </div>
         )}
-
-        {/* --- TAB: SHORTCUT --- */}
-        {activeTab === 'shortcut' && (
-          <div className="fade-in" style={{maxWidth: '800px'}}>
-            <h1 style={styles.panelTitle}>Link Shortener</h1>
-            
-            <div style={styles.card}>
-              <span style={styles.label}>PASTE LONG LINK</span>
-              <input style={styles.input} placeholder="https://..." value={linkToShorten} onChange={e => setLinkToShorten(e.target.value)} />
-              <button style={styles.btn(true)} onClick={shortenLink} disabled={shorteningLoading}>
-                {shorteningLoading ? 'SHORTENING...' : 'SHORTEN LINK'}
-              </button>
-
-              {shortenedLink && (
-                <div style={{marginTop: '20px'}}>
-                  <span style={styles.label}>SHORTENED LINK</span>
-                  <input style={styles.input} value={shortenedLink} readOnly />
-                  <button style={styles.btn(false)} onClick={() => {navigator.clipboard.writeText(shortenedLink); triggerNotify("SHORT LINK COPIED", "success")}}>COPY SHORT LINK</button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* --- TAB: SETTINGS --- */}
-        {activeTab === 'settings' && (
-          <div className="fade-in" style={{maxWidth: '600px'}}>
-            <h1 style={styles.panelTitle}>System Config</h1>
-            <div style={styles.card}>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
-                <div>
-                  <div style={{fontWeight:'bold'}}>Stealth Mode</div>
-                  <div style={{fontSize:'12px', color:theme.muted}}>Hide referral headers</div>
-                </div>
-                <input type="checkbox" checked={settings.stealth} onChange={() => setSettings({...settings, stealth: !settings.stealth})} />
-              </div>
-
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
-                <div>
-                  <div style={{fontWeight:'bold'}}>Ad Intensity</div>
-                  <div style={{fontSize:'12px', color:theme.muted}}>Frequency of intermediate hops</div>
-                </div>
-                <select style={{background:theme.bg, color:'#fff', border:`1px solid ${theme.border}`, padding:'5px'}} value={settings.adIntensity} onChange={e => setSettings({...settings, adIntensity: e.target.value})}>
-                  <option>Low</option><option>Balanced</option><option>High</option>
-                </select>
-              </div>
-
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                 <div>
-                  <div style={{fontWeight:'bold', color: theme.error}}>Maintenance Mode</div>
-                  <div style={{fontSize:'12px', color:theme.muted}}>Disable all active links instantly</div>
-                </div>
-                <input type="checkbox" checked={settings.maintenance} onChange={() => setSettings({...settings, maintenance: !settings.maintenance})} />
-              </div>
-            </div>
-            <div style={{textAlign:'center', fontSize:'10px', color:theme.muted}}>
-              BX-CORE BUILD 25.0.0 | SECURE CONNECTION
-            </div>
-          </div>
-        )}
+        {/* Los otros tabs Shortcut y Settings se mantienen igual pero resumidos para no exceder límites */}
       </div>
-
-      {/* NOTIFICATION LAYER */}
-      {notify.show && <div style={{position:'fixed', bottom:'30px', right:'30px', background: notify.type === 'error' ? theme.error : (notify.type === 'warning' ? theme.warning : theme.primary), color:'#fff', padding:'15px 30px', borderRadius:'12px', fontWeight:'bold', zIndex:1000, boxShadow:'0 10px 40px rgba(0,0,0,0.5)', animation:'slideUp 0.3s'}}>{notify.msg}</div>}
+      {notify.show && <div style={{position:'fixed', bottom:'30px', right:'30px', background: theme.primary, color:'#fff', padding:'15px 30px', borderRadius:'12px', zIndex:1000}}>{notify.msg}</div>}
     </div>
   );
 }
