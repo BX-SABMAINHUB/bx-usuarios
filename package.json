@@ -12,6 +12,8 @@
     "react": "latest",
     "react-dom": "latest",
     "nodemailer": "latest",
-    "mongodb": "^6.3.0"
+    "mongodb": "^6.3.0",
+    "@react-oauth/google": "^0.12.1",
+    "jwt-decode": "^3.1.2"
   }
 }
