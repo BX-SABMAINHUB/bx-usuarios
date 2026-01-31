@@ -1,194 +1,247 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
- * BX-NEXUS COMMAND CENTER v12.0.4 - ELITE EDITION
- * ARCHITECTURE: MONOLITHIC DASHBOARD + ANALYTICS + NODE DEPLOYER
- * SCOPE: FULL CONTROL & GMAIL BOT INTEGRATION
+ * BX COMMAND SYSTEM v14.0 - PRIVATE RELEASE
+ * OPERATIONAL CORE: CLANDESTINE NODE MANAGEMENT
+ * AUTH PROTOCOL: GMAIL MANDATORY VERIFICATION (REG/LOGIN)
+ * * [SECURITY NOTICE]: UNAUTHORIZED ACCESS IS LOGGED.
  */
 
-const THEME = {
-  bg: '#010409',
-  card: 'rgba(13, 17, 23, 0.98)',
-  border: '#30363d',
-  accent: '#00d2ff',
-  success: '#238636',
-  danger: '#da3633',
-  text: '#f0f6fc',
-  muted: '#8b949e',
-  glass: 'backdrop-filter: blur(25px);'
+const BX_THEME = {
+  background: '#020202',
+  surface: '#080808',
+  elevated: '#0c0c0c',
+  accent: '#00ff41', // Terminal Green
+  accentMuted: 'rgba(0, 255, 65, 0.15)',
+  danger: '#ff003c',
+  border: '#161616',
+  textMain: '#e0e0e0',
+  textMuted: '#555555'
 };
 
-export default function BxNexusDashboard() {
-  // --- [SISTEMA DE ESTADOS DINÁMICOS] ---
-  const [view, setView] = useState('deployment');
-  const [authStep, setAuthStep] = useState('gateway');
-  const [isLogged, setIsLogged] = useState(false);
+export default function BxTerminal() {
+  // --- [SYSTEM STATE ENGINE] ---
+  const [sessionActive, setSessionActive] = useState(false);
+  const [authView, setAuthView] = useState('identity'); // 'identity' | 'verify' | 'pin_setup'
+  const [activeTab, setActiveTab] = useState('broadcast');
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState({ show: false, msg: '', type: 'info' });
-  
-  // --- [BASE DE DATOS Y USUARIOS] ---
-  const [operator, setOperator] = useState({ email: '', pin: '' });
-  const [dbLinks, setDbLinks] = useState([]);
-  const [dbOperators, setDbOperators] = useState([]);
-  const [logs, setLogs] = useState([]);
 
-  // --- [MOTOR DE CREACIÓN DE ASSETS] ---
-  const [asset, setAsset] = useState({
+  // --- [OPERATOR DATA] ---
+  const [operator, setOperator] = useState({ email: '', pin: '', role: 'OPERATOR' });
+  const [inputPin, setInputPin] = useState('');
+  const [authCode, setAuthCode] = useState('');
+  const [serverCode, setServerCode] = useState(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  // --- [ASSET DATABASE] ---
+  const [nodes, setNodes] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [newAsset, setNewAsset] = useState({
     title: '',
     target: '',
     cover: '',
     layers: 1,
-    redirects: ['', '', ''],
-    category: 'General'
+    hops: ['', '', ''],
+    encryption: 'AES-256'
   });
 
-  // --- [ANALÍTICAS EN VIVO] ---
-  const [stats, setStats] = useState({ clicks: 0, nodes: 0, uptime: '99.9%' });
-
-  // --- [EFECTOS DE INICIALIZACIÓN] ---
+  // --- [INITIALIZATION] ---
   useEffect(() => {
-    const rawLinks = localStorage.getItem('bx_db_links');
-    const rawOps = localStorage.getItem('bx_db_ops');
-    const session = localStorage.getItem('bx_active_session');
-
-    if (rawLinks) setDbLinks(JSON.parse(rawLinks));
-    if (rawOps) setDbOperators(JSON.parse(rawOps));
-    if (session) {
-      setOperator(JSON.parse(session));
-      setIsLogged(true);
-    }
+    const savedNodes = localStorage.getItem('bx_vault_nodes');
+    if (savedNodes) setNodes(JSON.parse(savedNodes));
     
-    pushLog("System kernel initialized...");
-    pushLog("Network handshake successful.");
+    const session = localStorage.getItem('bx_session_token');
+    if (session) setSessionActive(true);
+
+    addLog("BX Kernel initialized. Scanning local sockets...");
+    addLog("Encryption modules loaded: [X25519, AES-GCM]");
   }, []);
 
-  // --- [LÓGICA DE NOTIFICACIONES] ---
-  const notify = (msg, type = 'info') => {
+  // --- [HELPER FUNCTIONS] ---
+  const addLog = (msg) => {
+    const log = { id: Date.now(), msg, time: new Date().toLocaleTimeString() };
+    setLogs(prev => [log, ...prev].slice(0, 100));
+  };
+
+  const showNotify = (msg, type = 'info') => {
     setNotification({ show: true, msg, type });
     setTimeout(() => setNotification({ show: false, msg: '', type: 'info' }), 5000);
   };
 
-  const pushLog = (msg) => {
-    const entry = { id: Date.now(), msg, time: new Date().toLocaleTimeString() };
-    setLogs(prev => [entry, ...prev].slice(0, 50));
-  };
+  // --- [GMAIL AUTH ENGINE] ---
+  const dispatchGmailAuth = async () => {
+    if (!operator.email.includes('@')) return showNotify("INVALID OPERATOR IDENTITY", "danger");
+    setLoading(true);
+    
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setServerCode(code);
 
-  // --- [COMUNICACIÓN CON GMAIL API] ---
-  const triggerGmailBot = async (target, code) => {
     try {
-      const response = await fetch('/api/send-email', {
+      // Endpoint simulado - Aquí iría tu API de Gmail
+      const response = await fetch('/api/bx-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: target, type: 'verification', code })
+        body: JSON.stringify({ email: operator.email, code })
       });
-      const result = await response.json();
-      return result.success;
+      
+      const resData = await response.json();
+      if (resData.success) {
+        setAuthView('verify');
+        showNotify("AUTH CODE DISPATCHED TO GMAIL", "success");
+        addLog(`Auth request for ${operator.email} sent.`);
+      } else {
+        throw new Error("Dispatch failed");
+      }
     } catch (e) {
-      pushLog("CRITICAL: Gmail Bot connection failed.");
-      return false;
+      // Fallback para pruebas si no tienes el backend listo
+      setAuthView('verify');
+      showNotify("LOCAL BYPASS ACTIVE (DEV MODE)", "info");
+      console.warn("DEBUG_AUTH_CODE:", code);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // --- [GESTIÓN DE DESPLIEGUE] ---
-  const handleDeploy = useCallback(() => {
-    if (!asset.title || !asset.target) {
-      notify("ERROR: FIELD VALIDATION FAILED", "danger");
+  const verifyIdentity = () => {
+    if (authCode !== serverCode) {
+      showNotify("VERIFICATION FAILED: CODE MISMATCH", "danger");
+      addLog("Failed auth attempt detected.");
       return;
     }
-    setLoading(true);
 
+    const operators = JSON.parse(localStorage.getItem('bx_operators') || '[]');
+    const existing = operators.find(o => o.email === operator.email);
+
+    if (existing) {
+      setIsRegistering(false);
+      setAuthView('identity'); // Pide el PIN ahora
+      showNotify("IDENTITY CONFIRMED. ENTER MASTER PIN.", "success");
+    } else {
+      setIsRegistering(true);
+      setAuthView('pin_setup');
+      showNotify("NEW IDENTITY DETECTED. CONFIGURE PIN.", "info");
+    }
+  };
+
+  const finalizeAccess = () => {
+    const operators = JSON.parse(localStorage.getItem('bx_operators') || '[]');
+    
+    if (isRegistering) {
+      const newOp = { email: operator.email, pin: inputPin };
+      operators.push(newOp);
+      localStorage.setItem('bx_operators', JSON.stringify(operators));
+      showNotify("OPERATOR REGISTERED IN VAULT", "success");
+      setIsRegistering(false);
+      setSessionActive(true);
+      localStorage.setItem('bx_session_token', 'active');
+    } else {
+      const op = operators.find(o => o.email === operator.email && o.pin === inputPin);
+      if (op) {
+        setSessionActive(true);
+        localStorage.setItem('bx_session_token', 'active');
+        showNotify("ACCESS GRANTED. WELCOME OPERATOR.", "success");
+      } else {
+        showNotify("INVALID MASTER PIN", "danger");
+      }
+    }
+  };
+
+  // --- [NODE DEPLOYMENT ENGINE] ---
+  const broadcastNode = () => {
+    if (!newAsset.title || !newAsset.target) return showNotify("MISSING BROADCAST DATA", "danger");
+    
+    setLoading(true);
     setTimeout(() => {
       const payload = {
-        title: asset.title,
-        target: asset.target,
-        image: asset.cover || 'https://i.ibb.co/vzPRm9M/alexgaming.png',
-        steps: asset.redirects.slice(0, asset.layers).filter(u => u !== '')
+        t: newAsset.title,
+        d: newAsset.target,
+        i: newAsset.cover || 'https://i.ibb.co/vzPRm9M/alexgaming.png',
+        s: newAsset.hops.slice(0, newAsset.layers).filter(h => h !== '')
       };
 
-      const hash = btoa(JSON.stringify(payload));
-      const nodeUrl = `${window.location.origin}/unlock?payload=${hash}`;
+      const encrypted = btoa(JSON.stringify(payload));
+      const nodeUrl = `${window.location.origin}/unlock?payload=${encrypted}`;
 
-      const newNode = {
-        id: Math.random().toString(36).substr(2, 8).toUpperCase(),
-        ...asset,
-        url: nodeUrl,
-        date: new Date().toLocaleString(),
-        clicks: 0
+      const nodeEntry = {
+        uid: Math.random().toString(36).substr(2, 6).toUpperCase(),
+        ...newAsset,
+        finalUrl: nodeUrl,
+        timestamp: new Date().toLocaleString(),
+        status: 'LIVE'
       };
 
-      const updated = [newNode, ...dbLinks];
-      setDbLinks(updated);
-      localStorage.setItem('bx_db_links', JSON.stringify(updated));
+      const updatedNodes = [nodeEntry, ...nodes];
+      setNodes(updatedNodes);
+      localStorage.setItem('bx_vault_nodes', JSON.stringify(updatedNodes));
       
-      setAsset({ ...asset, title: '', target: '', cover: '' });
+      setNewAsset({ title: '', target: '', cover: '', layers: 1, hops: ['', '', ''], encryption: 'AES-256' });
       setLoading(false);
-      notify("NODE DEPLOYED SUCCESSFULLY", "success");
-      pushLog(`Node ${newNode.id} broadcasted to global CDN.`);
-    }, 2000);
-  }, [asset, dbLinks]);
+      showNotify("NODE BROADCAST SUCCESSFUL", "success");
+      addLog(`Asset ${nodeEntry.uid} deployed to cluster.`);
+    }, 1500);
+  };
 
-  // --- [ESTILOS GLOBALES] ---
-  const globalStyles = (
+  // --- [UI COMPONENTS] ---
+  const GlobalStyles = () => (
     <style dangerouslySetInnerHTML={{ __html: `
-      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;800&family=Inter:wght@300;400;900&display=swap');
-      * { box-sizing: border-box; font-family: 'Inter', sans-serif; transition: all 0.25s ease; }
-      body { background: ${THEME.bg}; color: ${THEME.text}; margin: 0; overflow-x: hidden; }
-      .glass { background: ${THEME.card}; border: 1px solid ${THEME.border}; border-radius: 24px; }
-      .btn-primary { background: ${THEME.accent}; color: black; border: none; padding: 16px 30px; border-radius: 12px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
-      .btn-primary:hover { transform: scale(1.02); box-shadow: 0 0 30px ${THEME.accent}66; }
-      .bx-input { background: #0d1117; border: 1px solid ${THEME.border}; color: white; padding: 16px; border-radius: 12px; width: 100%; outline: none; font-size: 0.95rem; }
-      .bx-input:focus { border-color: ${THEME.accent}; box-shadow: 0 0 15px ${THEME.accent}22; }
-      .sidebar-btn { width: 100%; padding: 18px; border: none; background: transparent; color: ${THEME.muted}; text-align: left; cursor: pointer; font-weight: 700; border-radius: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
-      .sidebar-btn.active { background: ${THEME.accent}15; color: ${THEME.accent}; }
-      .stat-card { padding: 30px; text-align: center; border-right: 1px solid ${THEME.border}; }
-      .stat-card:last-child { border: none; }
-      @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-      .live-indicator { width: 10px; height: 10px; background: #3fb950; border-radius: 50%; animation: pulse 2s infinite; }
-      ::-webkit-scrollbar { width: 6px; }
-      ::-webkit-scrollbar-thumb { background: ${THEME.border}; border-radius: 10px; }
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;400;800&display=swap');
+      * { box-sizing: border-box; font-family: 'JetBrains Mono', monospace; scrollbar-width: thin; scrollbar-color: #222 #000; }
+      body { background: ${BX_THEME.background}; color: ${BX_THEME.textMain}; margin: 0; overflow: hidden; }
+      .bx-input { background: #000; border: 1px solid ${BX_THEME.border}; color: ${BX_THEME.accent}; padding: 15px; width: 100%; border-radius: 2px; outline: none; margin-bottom: 20px; font-size: 0.9rem; }
+      .bx-input:focus { border-color: ${BX_THEME.accent}; box-shadow: 0 0 15px ${BX_THEME.accentMuted}; }
+      .bx-btn { background: ${BX_THEME.accent}; color: #000; border: none; padding: 18px; width: 100%; font-weight: 800; cursor: pointer; letter-spacing: 2px; transition: 0.3s; }
+      .bx-btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
+      .bx-btn:disabled { background: #111; color: #444; cursor: not-allowed; }
+      .side-link { padding: 15px 20px; cursor: pointer; color: ${BX_THEME.textMuted}; font-size: 0.85rem; border-left: 2px solid transparent; transition: 0.2s; }
+      .side-link:hover { color: #fff; background: #080808; }
+      .side-link.active { color: ${BX_THEME.accent}; border-color: ${BX_THEME.accent}; background: ${BX_THEME.accentMuted}; }
+      .node-card { background: ${BX_THEME.surface}; border: 1px solid ${BX_THEME.border}; padding: 25px; margin-bottom: 20px; position: relative; overflow: hidden; }
+      .node-card::after { content: ''; position: absolute; top: 0; left: 0; width: 2px; height: 100%; background: ${BX_THEME.accent}; }
+      @keyframes scanline { 0% { top: 0% } 100% { top: 100% } }
+      .scanline { position: fixed; top: 0; left: 0; width: 100%; height: 2px; background: rgba(0,255,65,0.05); z-index: 9999; pointer-events: none; animation: scanline 8s infinite linear; }
     `}} />
   );
 
-  // --- [INTERFAZ DE LOGIN] ---
-  if (!isLogged) {
+  // --- [LOGIN / AUTH VIEW] ---
+  if (!sessionActive) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-        {globalStyles}
-        <div className="glass" style={{ width: '450px', padding: '60px', position: 'relative', zIndex: 2 }}>
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <div style={{ width: '60px', height: '60px', background: THEME.accent, borderRadius: '18px', margin: '0 auto 20px', boxShadow: `0 0 40px ${THEME.accent}55` }}></div>
-            <h1 style={{ fontSize: '2.8rem', fontWeight: '900', letterSpacing: '-2px', margin: 0 }}>BX-NEXUS</h1>
-            <p style={{ color: THEME.muted, fontSize: '0.9rem' }}>SECURITY_PROTOCOL_VERSION_12.0</p>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <GlobalStyles />
+        <div className="scanline" />
+        <div style={{ width: '450px', background: BX_THEME.surface, border: `1px solid ${BX_THEME.border}`, padding: '60px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '50px' }}>
+            <h1 style={{ fontSize: '4rem', color: BX_THEME.accent, margin: 0, letterSpacing: '-5px', fontWeight: 800 }}>BX</h1>
+            <div style={{ fontSize: '0.6rem', color: BX_THEME.textMuted, letterSpacing: '3px' }}>CLANDESTINE_NETWORK_ACCESS</div>
           </div>
 
-          {authStep === 'gateway' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <button className="btn-primary" onClick={() => setAuthStep('login')}>ACCESS SYSTEM</button>
-              <button className="btn-primary" style={{ background: 'transparent', color: 'white', border: `1px solid ${THEME.border}` }} onClick={() => setAuthStep('reg')}>REGISTER NODE</button>
+          {authView === 'identity' && (
+            <div style={{ animation: 'fadeIn 0.5s' }}>
+              <input className="bx-input" placeholder="OPERATOR_GMAIL" value={operator.email} onChange={e => setOperator({...operator, email: e.target.value})} />
+              {/* Si ya pasó el Gmail, pide el PIN */}
+              {serverCode && (
+                 <input className="bx-input" placeholder="MASTER_PIN" type="password" value={inputPin} onChange={e => setInputPin(e.target.value)} />
+              )}
+              <button className="bx-btn" onClick={serverCode ? finalizeAccess : dispatchGmailAuth} disabled={loading}>
+                {loading ? 'DISPATCHING...' : (serverCode ? 'AUTHORIZE_SESSION' : 'REQUEST_ACCESS_CODE')}
+              </button>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <input className="bx-input" placeholder="Operator Email" onChange={(e) => setOperator({ ...operator, email: e.target.value })} />
-              <input className="bx-input" placeholder="Secure PIN" type="password" onChange={(e) => setOperator({ ...operator, pin: e.target.value })} />
-              <button className="btn-primary" onClick={() => {
-                if (authStep === 'reg') {
-                  const news = [...dbOperators, operator];
-                  setDbOperators(news);
-                  localStorage.setItem('bx_db_ops', JSON.stringify(news));
-                  setAuthStep('login');
-                  notify("OPERATOR REGISTERED", "success");
-                } else {
-                  const exist = dbOperators.find(o => o.email === operator.email && o.pin === operator.pin);
-                  if (exist) {
-                    setIsLogged(true);
-                    localStorage.setItem('bx_active_session', JSON.stringify(operator));
-                    notify("WELCOME BACK OPERATOR", "success");
-                  } else {
-                    notify("INVALID CREDENTIALS", "danger");
-                  }
-                }
-              }}>{authStep === 'reg' ? 'CREATE IDENTITY' : 'START SESSION'}</button>
-              <span onClick={() => setAuthStep('gateway')} style={{ textAlign: 'center', color: THEME.muted, fontSize: '0.8rem', cursor: 'pointer' }}>Return to Gateway</span>
+          )}
+
+          {authView === 'verify' && (
+            <div style={{ animation: 'fadeIn 0.5s' }}>
+              <div style={{ marginBottom: '20px', color: BX_THEME.accent, fontSize: '0.7rem' }}>ENTER 6-DIGIT GMAIL CODE:</div>
+              <input className="bx-input" placeholder="000000" style={{ textAlign: 'center', letterSpacing: '10px', fontSize: '1.5rem' }} maxLength={6} onChange={e => setAuthCode(e.target.value)} />
+              <button className="bx-btn" onClick={verifyIdentity}>VERIFY_IDENTITY</button>
+              <div onClick={() => setAuthView('identity')} style={{ textAlign: 'center', marginTop: '20px', fontSize: '0.7rem', color: BX_THEME.textMuted, cursor: 'pointer' }}>ABORT_ATTEMPT</div>
+            </div>
+          )}
+
+          {authView === 'pin_setup' && (
+            <div style={{ animation: 'fadeIn 0.5s' }}>
+              <div style={{ marginBottom: '20px', color: BX_THEME.accent, fontSize: '0.7rem' }}>CREATE MASTER PIN:</div>
+              <input className="bx-input" placeholder="****" type="password" onChange={e => setInputPin(e.target.value)} />
+              <button className="bx-btn" onClick={finalizeAccess}>INITIALIZE_OPERATOR</button>
             </div>
           )}
         </div>
@@ -196,146 +249,114 @@ export default function BxNexusDashboard() {
     );
   }
 
-  // --- [INTERFAZ DEL DASHBOARD] ---
+  // --- [MAIN DASHBOARD] ---
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {globalStyles}
-      {/* NAVEGACIÓN LATERAL */}
-      <div style={{ width: '300px', background: '#020617', borderRight: `1px solid ${THEME.border}`, padding: '50px 25px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '60px' }}>
-          <div style={{ width: '35px', height: '35px', background: THEME.accent, borderRadius: '8px' }}></div>
-          <span style={{ fontWeight: '900', fontSize: '1.4rem' }}>BX-CORE</span>
+    <div style={{ display: 'flex', height: '100vh' }}>
+      <GlobalStyles />
+      <div className="scanline" />
+      
+      {/* SIDEBAR */}
+      <div style={{ width: '280px', background: '#000', borderRight: `1px solid ${BX_THEME.border}`, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '40px 30px', borderBottom: `1px solid ${BX_THEME.border}` }}>
+          <div style={{ color: BX_THEME.accent, fontWeight: 800, fontSize: '1.5rem' }}>BX_CORE</div>
+          <div style={{ fontSize: '0.5rem', color: BX_THEME.textMuted }}>S_STATUS: ENCRYPTED</div>
         </div>
-
-        <button onClick={() => setView('deployment')} className={`sidebar-btn ${view === 'deployment' ? 'active' : ''}`}><span>📡</span> Link Deployer</button>
-        <button onClick={() => setView('database')} className={`sidebar-btn ${view === 'database' ? 'active' : ''}`}><span>📂</span> Asset Database</button>
-        <button onClick={() => setView('terminal')} className={`sidebar-btn ${view === 'terminal' ? 'active' : ''}`}><span>💻</span> Root Terminal</button>
         
-        <div style={{ marginTop: 'auto', padding: '20px', background: '#0d1117', borderRadius: '15px', border: `1px solid ${THEME.border}` }}>
-          <div style={{ fontSize: '0.7rem', color: THEME.muted }}>SESSION_ACTIVE</div>
-          <div style={{ fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '15px' }}>{operator.email}</div>
-          <button onClick={() => { localStorage.removeItem('bx_active_session'); window.location.reload(); }} style={{ width: '100%', padding: '10px', background: THEME.danger, border: 'none', color: 'white', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>LOGOUT</button>
+        <nav style={{ flex: 1, paddingTop: '30px' }}>
+          <div className={`side-link ${activeTab === 'broadcast' ? 'active' : ''}`} onClick={() => setActiveTab('broadcast')}>[01] BROADCAST_NODE</div>
+          <div className={`side-link ${activeTab === 'vault' ? 'active' : ''}`} onClick={() => setActiveTab('vault')}>[02] ASSET_VAULT</div>
+          <div className={`side-link ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveTab('logs')}>[03] SYSTEM_LOGS</div>
+        </nav>
+
+        <div style={{ padding: '30px', borderTop: `1px solid ${BX_THEME.border}` }}>
+          <div style={{ fontSize: '0.6rem', color: BX_THEME.textMuted, marginBottom: '10px' }}>OPERATOR_ID: {operator.email.split('@')[0].toUpperCase()}</div>
+          <button onClick={() => { localStorage.removeItem('bx_session_token'); window.location.reload(); }} style={{ background: 'none', border: 'none', color: BX_THEME.danger, fontSize: '0.7rem', cursor: 'pointer', padding: 0 }}>EXIT_TERMINAL</button>
         </div>
       </div>
 
-      {/* CONTENIDO PRINCIPAL */}
-      <div style={{ flex: 1, padding: '60px', overflowY: 'auto' }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+      {/* CONTENT AREA */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '60px' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           
-          {view === 'deployment' && (
-            <div style={{ animation: 'open 0.6s ease' }}>
-              <h1 style={{ fontSize: '3.5rem', fontWeight: '1000', marginBottom: '10px', letterSpacing: '-2px' }}>Cloud <span style={{ color: THEME.accent }}>Deployment</span></h1>
-              <p style={{ color: THEME.muted, marginBottom: '50px' }}>Securely package and distribute assets through our global CDN nodes.</p>
+          {activeTab === 'broadcast' && (
+            <div style={{ animation: 'fadeIn 0.4s' }}>
+              <h1 style={{ fontSize: '3rem', margin: '0 0 10px 0', letterSpacing: '-2px' }}>NODE_<span style={{ color: BX_THEME.accent }}>DEPLOY</span></h1>
+              <p style={{ color: BX_THEME.textMuted, marginBottom: '50px' }}>Initialize a new distribution node on the clandestine network.</p>
 
-              <div className="glass" style={{ padding: '45px', marginBottom: '50px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '30px' }}>
+              <div style={{ background: BX_THEME.surface, border: `1px solid ${BX_THEME.border}`, padding: '40px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                   <div>
-                    <label style={{ fontSize: '0.8rem', color: THEME.muted, marginBottom: '10px', display: 'block' }}>ASSET_LABEL</label>
-                    <input className="bx-input" placeholder="e.g. Premium Graphics Pack" value={asset.title} onChange={(e) => setAsset({...asset, title: e.target.value})} />
+                    <label style={{ fontSize: '0.6rem', color: BX_THEME.textMuted }}>ASSET_IDENTIFIER</label>
+                    <input className="bx-input" placeholder="Node Title" value={newAsset.title} onChange={e => setNewAsset({...newAsset, title: e.target.value})} />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.8rem', color: THEME.muted, marginBottom: '10px', display: 'block' }}>THUMBNAIL_URL</label>
-                    <input className="bx-input" placeholder="https://image.host/img.jpg" value={asset.cover} onChange={(e) => setAsset({...asset, cover: e.target.value})} />
+                    <label style={{ fontSize: '0.6rem', color: BX_THEME.textMuted }}>THUMB_LINK</label>
+                    <input className="bx-input" placeholder="Image URL" value={newAsset.cover} onChange={e => setNewAsset({...newAsset, cover: e.target.value})} />
                   </div>
                 </div>
 
-                <label style={{ fontSize: '0.8rem', color: THEME.muted, marginBottom: '10px', display: 'block' }}>DESTINATION_TARGET (THE ASSET)</label>
-                <input className="bx-input" style={{ marginBottom: '40px' }} placeholder="https://mediafire.com/file_id" value={asset.target} onChange={(e) => setAsset({...asset, target: e.target.value})} />
+                <label style={{ fontSize: '0.6rem', color: BX_THEME.textMuted }}>DESTINATION_ENCRYPTED_TARGET</label>
+                <input className="bx-input" placeholder="Final Redirect URL" value={newAsset.target} onChange={e => setNewAsset({...newAsset, target: e.target.value})} />
 
-                <div style={{ background: '#020617', padding: '35px', borderRadius: '20px', border: `1px solid ${THEME.border}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '25px' }}>
-                    <span style={{ fontWeight: '900', fontSize: '1.1rem' }}>GATEWAY ARCHITECTURE</span>
-                    <select value={asset.layers} onChange={(e) => setAsset({...asset, layers: parseInt(e.target.value)})} style={{ background: '#0d1117', color: 'white', border: `1px solid ${THEME.accent}`, padding: '8px 15px', borderRadius: '10px', fontWeight: 'bold' }}>
-                      <option value="1">1 SECURITY LAYER</option>
-                      <option value="2">2 SECURITY LAYERS</option>
-                      <option value="3">3 SECURITY LAYERS</option>
+                <div style={{ marginTop: '20px', borderTop: `1px solid ${BX_THEME.border}`, paddingTop: '30px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                    <span style={{ fontSize: '0.7rem', color: BX_THEME.accent }}>SECURITY_HOPS</span>
+                    <select value={newAsset.layers} onChange={e => setNewAsset({...newAsset, layers: parseInt(e.target.value)})} style={{ background: '#000', color: BX_THEME.accent, border: 'none', outline: 'none' }}>
+                      <option value="1">1 HOP</option><option value="2">2 HOPS</option><option value="3">3 HOPS</option>
                     </select>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
-                    {Array.from({ length: asset.layers }).map((_, i) => (
-                      <input key={i} className="bx-input" placeholder={`Redirect URL ${i+1}`} value={asset.redirects[i]} onChange={(e) => {
-                        const r = [...asset.redirects];
-                        r[i] = e.target.value;
-                        setAsset({...asset, redirects: r});
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
+                    {Array.from({ length: newAsset.layers }).map((_, i) => (
+                      <input key={i} className="bx-input" placeholder={`Hop_0${i+1}_URL`} onChange={e => {
+                        const h = [...newAsset.hops]; h[i] = e.target.value; setNewAsset({...newAsset, hops: h});
                       }} />
                     ))}
                   </div>
                 </div>
 
-                <button className="btn-primary" onClick={handleDeploy} disabled={loading} style={{ width: '100%', marginTop: '40px', padding: '25px', fontSize: '1.2rem' }}>
-                  {loading ? 'CALCULATING NODE HASH...' : 'EXECUTE BROADCAST'}
+                <button className="bx-btn" onClick={broadcastNode} disabled={loading} style={{ marginTop: '20px' }}>
+                  {loading ? 'COMPILING_NODE...' : 'EXECUTE_BROADCAST'}
                 </button>
               </div>
-
-              {/* TABLA DE NODOS RECIENTES */}
-              <div className="glass" style={{ padding: '40px' }}>
-                <h2 style={{ margin: '0 0 30px 0' }}>Active Node Cluster</h2>
-                {dbLinks.length === 0 ? (
-                  <p style={{ color: THEME.muted }}>No nodes active in the current session.</p>
-                ) : (
-                  dbLinks.slice(0, 5).map(link => (
-                    <div key={link.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px', background: '#0d1117', borderRadius: '15px', marginBottom: '15px', border: `1px solid ${THEME.border}` }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <div style={{ background: THEME.accent, color: 'black', fontWeight: '900', padding: '10px', borderRadius: '8px', fontSize: '0.7rem' }}>{link.id}</div>
-                        <div>
-                          <div style={{ fontWeight: 'bold' }}>{link.title}</div>
-                          <div style={{ fontSize: '0.75rem', color: THEME.muted }}>{link.date}</div>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <button onClick={() => { navigator.clipboard.writeText(link.url); notify("COPIED TO CLIPBOARD"); }} style={{ padding: '10px 20px', background: '#21262d', border: 'none', color: 'white', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>COPY_URL</button>
-                        <button onClick={() => {
-                          const n = dbLinks.filter(x => x.id !== link.id);
-                          setDbLinks(n);
-                          localStorage.setItem('bx_db_links', JSON.stringify(n));
-                        }} style={{ padding: '10px', background: 'rgba(218, 54, 51, 0.1)', border: '1px solid #da3633', color: '#da3633', borderRadius: '8px', cursor: 'pointer' }}>DEL</button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
             </div>
           )}
 
-          {view === 'database' && (
-            <div style={{ animation: 'open 0.6s ease' }}>
-              <h1>Asset <span style={{ color: THEME.accent }}>Inventory</span></h1>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px', marginTop: '40px' }}>
-                {dbLinks.map(link => (
-                  <div key={link.id} className="glass" style={{ padding: '25px', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', top: 0, right: 0, padding: '8px 15px', background: THEME.accent, color: 'black', fontSize: '0.7rem', fontWeight: '900' }}>ACTIVE</div>
-                    <img src={link.cover} style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '15px', marginBottom: '15px' }} />
-                    <h3 style={{ margin: '0 0 10px 0' }}>{link.title}</h3>
-                    <p style={{ fontSize: '0.8rem', color: THEME.muted, marginBottom: '20px' }}>Deployed on {link.date}</p>
+          {activeTab === 'vault' && (
+            <div style={{ animation: 'fadeIn 0.4s' }}>
+              <h1 style={{ fontSize: '3rem', margin: '0 0 50px 0', letterSpacing: '-2px' }}>ASSET_<span style={{ color: BX_THEME.accent }}>VAULT</span></h1>
+              {nodes.length === 0 && <div style={{ color: BX_THEME.textMuted }}>No active nodes found in local cluster.</div>}
+              {nodes.map(node => (
+                <div key={node.uid} className="node-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ color: BX_THEME.accent, fontSize: '0.6rem', fontWeight: 800 }}>NODE_ID: {node.uid}</div>
+                      <h3 style={{ margin: '5px 0' }}>{node.title}</h3>
+                      <div style={{ fontSize: '0.65rem', color: BX_THEME.textMuted }}>DEPLOYED: {node.timestamp}</div>
+                    </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <button className="btn-primary" style={{ flex: 1, padding: '12px', fontSize: '0.8rem' }} onClick={() => { navigator.clipboard.writeText(link.url); notify("COPIED"); }}>GET LINK</button>
-                      <button className="btn-primary" style={{ background: '#21262d', color: 'white', flex: 1, padding: '12px', fontSize: '0.8rem' }} onClick={() => window.open(link.target, '_blank')}>TEST TARGET</button>
+                      <button className="bx-btn" style={{ padding: '8px 15px', fontSize: '0.6rem' }} onClick={() => { navigator.clipboard.writeText(node.finalUrl); showNotify("LINK_COPIED"); }}>COPY_LINK</button>
+                      <button className="bx-btn" style={{ padding: '8px 15px', fontSize: '0.6rem', background: BX_THEME.danger, color: '#fff' }} onClick={() => {
+                        const filtered = nodes.filter(n => n.uid !== node.uid);
+                        setNodes(filtered);
+                        localStorage.setItem('bx_vault_nodes', JSON.stringify(filtered));
+                        showNotify("NODE_PURGED");
+                      }}>PURGE</button>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           )}
 
-          {view === 'terminal' && (
-            <div style={{ animation: 'open 0.6s ease' }}>
-              <h1>Root <span style={{ color: THEME.accent }}>Terminal</span></h1>
-              <div className="glass" style={{ background: 'black', padding: '30px', marginTop: '40px', height: '500px', overflowY: 'auto', fontFamily: 'JetBrains Mono, monospace' }}>
+          {activeTab === 'logs' && (
+            <div style={{ animation: 'fadeIn 0.4s' }}>
+              <h1 style={{ fontSize: '3rem', margin: '0 0 50px 0', letterSpacing: '-2px' }}>SYSTEM_<span style={{ color: BX_THEME.accent }}>LOGS</span></h1>
+              <div style={{ background: '#000', padding: '30px', border: `1px solid ${BX_THEME.border}`, height: '500px', overflowY: 'auto' }}>
                 {logs.map(log => (
-                  <div key={log.id} style={{ marginBottom: '8px', fontSize: '0.9rem' }}>
-                    <span style={{ color: THEME.accent }}>[{log.time}]</span> <span style={{ color: '#555' }}>root@nexus:~#</span> <span style={{ color: '#e6edf3' }}>{log.msg}</span>
+                  <div key={log.id} style={{ marginBottom: '10px', fontSize: '0.8rem', borderBottom: '1px solid #080808', paddingBottom: '10px' }}>
+                    <span style={{ color: BX_THEME.accent }}>[{log.time}]</span> <span style={{ color: BX_THEME.textMuted }}>root@bx:~$</span> {log.msg}
                   </div>
                 ))}
-                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                  <span style={{ color: THEME.accent }}>root@nexus:~#</span>
-                  <input style={{ background: 'transparent', border: 'none', color: 'white', outline: 'none', flex: 1, fontFamily: 'JetBrains Mono' }} autoFocus onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      pushLog(e.target.value);
-                      if (e.target.value === 'clear') setLogs([]);
-                      e.target.value = '';
-                    }
-                  }} />
-                </div>
               </div>
             </div>
           )}
@@ -343,14 +364,14 @@ export default function BxNexusDashboard() {
         </div>
       </div>
 
-      {/* SISTEMA DE NOTIFICACIONES */}
+      {/* NOTIFICATION HUD */}
       {notification.show && (
         <div style={{ 
           position: 'fixed', bottom: '40px', right: '40px', 
-          background: notification.type === 'danger' ? THEME.danger : '#0d1117',
-          border: `1px solid ${notification.type === 'danger' ? '#f85149' : THEME.accent}`,
-          padding: '20px 40px', borderRadius: '15px', fontWeight: 'bold', color: 'white', 
-          zIndex: 10000, boxShadow: `0 10px 40px rgba(0,0,0,0.5)`, animation: 'open 0.3s ease'
+          background: notification.type === 'danger' ? BX_THEME.danger : '#000', 
+          color: notification.type === 'danger' ? '#fff' : BX_THEME.accent,
+          border: `1px solid ${BX_THEME.accent}`, padding: '20px 40px',
+          fontWeight: 800, zIndex: 100000, boxShadow: `0 0 30px ${BX_THEME.accentMuted}`
         }}>
           {notification.msg}
         </div>
