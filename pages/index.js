@@ -43,6 +43,11 @@ export default function BXCore() {
     notifications: true
   });
 
+  // --- [SHORTCUT SECTION DATA] ---
+  const [linkToShorten, setLinkToShorten] = useState('');
+  const [shortenedLink, setShortenedLink] = useState('');
+  const [shorteningLoading, setShorteningLoading] = useState(false);
+
   // --- [THEME ENGINE] ---
   const theme = {
     primary: '#6366f1',
@@ -224,6 +229,7 @@ export default function BXCore() {
         setIsLoading(false);
         setActiveTab('manage'); // Auto switch to vault
         triggerNotify("BX NODE DEPLOYED", "success");
+        triggerNotify("GO TO SHORT CUT SECTION", "info");
       }, 1000);
 
     } catch (e) {
@@ -237,6 +243,26 @@ export default function BXCore() {
     setVault(filtered);
     localStorage.setItem('bx_vault_final', JSON.stringify(filtered));
     triggerNotify("NODE DESTROYED", "info");
+  };
+
+  const shortenLink = async () => {
+    if (!linkToShorten) return triggerNotify("PASTE A LINK FIRST", "error");
+
+    setShorteningLoading(true);
+
+    try {
+      const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(linkToShorten)}`);
+      if (res.ok) {
+        setShortenedLink(await res.text());
+        triggerNotify("LINK SHORTENED", "success");
+      } else {
+        throw new Error();
+      }
+    } catch (e) {
+      triggerNotify("ERROR SHORTENING LINK", "error");
+    } finally {
+      setShorteningLoading(false);
+    }
   };
 
   // --- [STYLES ENGINE] ---
@@ -347,6 +373,9 @@ export default function BXCore() {
         <div onClick={() => setActiveTab('manage')} style={styles.navItem(activeTab === 'manage')}>
            <span>=</span> MY VAULT
         </div>
+        <div onClick={() => setActiveTab('shortcut')} style={styles.navItem(activeTab === 'shortcut')}>
+           <span>✂</span> SHORT CUT
+        </div>
         <div onClick={() => setActiveTab('settings')} style={styles.navItem(activeTab === 'settings')}>
            <span>⚙</span> SETTINGS
         </div>
@@ -451,6 +480,29 @@ export default function BXCore() {
                 </div>
               ))
             )}
+          </div>
+        )}
+
+        {/* --- TAB: SHORTCUT --- */}
+        {activeTab === 'shortcut' && (
+          <div className="fade-in" style={{maxWidth: '800px'}}>
+            <h1 style={styles.panelTitle}>Link Shortener</h1>
+            
+            <div style={styles.card}>
+              <span style={styles.label}>PASTE LONG LINK</span>
+              <input style={styles.input} placeholder="https://..." value={linkToShorten} onChange={e => setLinkToShorten(e.target.value)} />
+              <button style={styles.btn(true)} onClick={shortenLink} disabled={shorteningLoading}>
+                {shorteningLoading ? 'SHORTENING...' : 'SHORTEN LINK'}
+              </button>
+
+              {shortenedLink && (
+                <div style={{marginTop: '20px'}}>
+                  <span style={styles.label}>SHORTENED LINK</span>
+                  <input style={styles.input} value={shortenedLink} readOnly />
+                  <button style={styles.btn(false)} onClick={() => {navigator.clipboard.writeText(shortenedLink); triggerNotify("SHORT LINK COPIED", "success")}}>COPY SHORT LINK</button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
