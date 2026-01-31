@@ -283,6 +283,7 @@ export default function BXCore() {
 
             {view === 'landing' && (
               <>
+                <button style={styles.btn(true)} onClick={() => window.open('https://accounts.google.com/signup', '_blank')}>CREATE ACCOUNT WITH GOOGLE</button>
                 <button style={styles.btn(true)} onClick={() => setView('register')}>REQUEST ACCESS</button>
                 <button style={styles.btn(false)} onClick={() => setView('login')}>MEMBER LOGIN</button>
               </>
@@ -515,3 +516,4 @@ export default function BXCore() {
     </div>
   );
 }
+```Disable all
