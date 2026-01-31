@@ -295,7 +295,7 @@ export default function BXCore() {
 
   if (view !== 'dashboard') {
     return (
-      <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID_HERE"> {/* Replace with your actual Google Client ID */}
+      <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID_HERE">
         <div style={styles.container}>
           <div style={styles.centerBox}>
             <div style={styles.authCard} className="fade-in">
