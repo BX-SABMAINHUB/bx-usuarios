@@ -4,13 +4,13 @@ import React, { useState, useEffect } from 'react';
  * BX CORE DASHBOARD - FINAL RELEASE (v25.0.0)
  * ARCHITECTURE: MONOLITHIC CLIENT-SIDE REACT
  * DESIGN SYSTEM: INDIGO/DARK (LOOTLABS STYLE)
- * SECURITY: OTP GMAIL + PIN + CAPTCHA GENERATION + GOOGLE OAUTH SIMULATION
+ * SECURITY: OTP GMAIL + PIN + CAPTCHA GENERATION + GOOGLE AUTH SIMULATION
  */
 
 export default function BXCore() {
   // --- [VIEW & UI STATE] ---
-  // Added 'google_auth' to the valid views
-  const [view, setView] = useState('loading_core'); // landing, register, otp, pin_setup, login, dashboard, google_auth
+  // Added 'google_auth' to views
+  const [view, setView] = useState('loading_core'); // landing, register, otp, pin, login, dashboard, google_auth
   const [activeTab, setActiveTab] = useState('create');
   const [isLoading, setIsLoading] = useState(false);
   const [notify, setNotify] = useState({ show: false, msg: '', type: 'info' });
@@ -85,7 +85,6 @@ export default function BXCore() {
 
   // --- [AUTH CONTROLLERS] ---
   
-  // 1. STANDARD GMAIL OTP FLOW
   const sendGmailOtp = async () => {
     if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       return triggerNotify("INVALID GMAIL FORMAT", "error");
@@ -97,7 +96,6 @@ export default function BXCore() {
 
     try {
       // Connects to your api/send-email.js
-      // NOTE: For demo purposes if API is missing, we simulate success
       const res = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -130,19 +128,19 @@ export default function BXCore() {
     }
   };
 
-  // 2. NEW GOOGLE AUTH FLOW (SIMULATED)
-  const handleGoogleSelect = (selectedEmail) => {
-      setIsLoading(true);
-      setTimeout(() => {
-          setEmail(selectedEmail);
-          setIsLoading(false);
-          triggerNotify("GOOGLE IDENTITY VERIFIED", "success");
-          // Google verified user, skip OTP, go straight to PIN
-          setView('pin_setup');
-      }, 1000);
+  // --- NUEVA FUNCION GOOGLE (SIMULADA SIN LIBRERIA EXTERNA) ---
+  const handleGoogleAuth = (selectedEmail) => {
+    setIsLoading(true);
+    // Simulamos carga de Google
+    setTimeout(() => {
+        setEmail(selectedEmail);
+        setIsLoading(false);
+        triggerNotify("GOOGLE IDENTITY VERIFIED", "success");
+        // SALTAMOS EL OTP Y VAMOS DIRECTO AL PIN
+        setView('pin_setup');
+    }, 1500);
   };
 
-  // 3. REGISTRATION FINALIZATION
   const registerUser = () => {
     if (pin.length < 4) return triggerNotify("PIN TOO SHORT", "error");
     
@@ -271,8 +269,8 @@ export default function BXCore() {
     btn: (primary = true) => ({ width: '100%', padding: '16px', borderRadius: '12px', border: primary ? 'none' : `1px solid ${theme.border}`, background: primary ? theme.primary : 'transparent', color: '#fff', fontWeight: '700', cursor: 'pointer', marginTop: '10px', fontSize: '14px' }),
     
     // Google Button Style
-    googleBtn: { width: '100%', padding: '16px', borderRadius: '12px', border: 'none', background: '#ffffff', color: '#333', fontWeight: '800', cursor: 'pointer', marginTop: '10px', fontSize: '14px', display:'flex', alignItems:'center', justifyContent:'center', gap:'10px', transition: '0.2s' },
-
+    googleBtn: { width: '100%', padding: '16px', borderRadius: '12px', border: 'none', background: '#FFFFFF', color: '#1f1f1f', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px', fontSize: '14px', display:'flex', alignItems:'center', justifyContent:'center', gap:'10px', transition: '0.2s' },
+    
     // Dashboard Specifics
     sidebar: { width: '280px', borderRight: `1px solid ${theme.border}`, padding: '30px', display: 'flex', flexDirection: 'column' },
     content: { flex: 1, padding: '50px', overflowY: 'auto', height: '100vh' },
@@ -300,47 +298,57 @@ export default function BXCore() {
             <h1 style={styles.title}>BX</h1>
             <p style={styles.subtitle}>Secure Access Gateway v25</p>
 
-            {/* --- LANDING VIEW WITH NEW GOOGLE BUTTON --- */}
+            {/* --- LANDING PAGE MODIFICADA --- */}
             {view === 'landing' && (
               <>
                 <button style={styles.btn(true)} onClick={() => setView('register')}>REQUEST ACCESS</button>
                 
-                {/* BUTTON FOR GOOGLE */}
+                {/* BOTÓN GOOGLE */}
                 <button style={styles.googleBtn} onClick={() => setView('google_auth')}>
-                   <span style={{color:'#DB4437', fontSize:'18px'}}>G</span> CREATE ACCOUNT WITH GOOGLE
+                  <span style={{color: '#DB4437', fontWeight:'900', fontSize:'18px'}}>G</span> CREATE ACCOUNT WITH GOOGLE
                 </button>
 
                 <button style={styles.btn(false)} onClick={() => setView('login')}>MEMBER LOGIN</button>
               </>
             )}
 
-            {/* --- GOOGLE SIMULATED VIEW --- */}
+            {/* --- SIMULACIÓN DE GOOGLE (Mismo estilo que el video) --- */}
             {view === 'google_auth' && (
-               <div style={{background:'#fff', margin:'-20px', padding:'30px', borderRadius:'12px', textAlign:'center'}}>
-                   <div style={{marginBottom:'20px'}}>
-                     <span style={{color:'#DB4437', fontWeight:'bold', fontSize:'24px'}}>Google</span>
-                     <p style={{color:'#555', fontSize:'14px', marginTop:'5px'}}>Choose an account to continue to BX Core</p>
-                   </div>
-                   
-                   {/* SIMULATED ACCOUNT LIST */}
-                   <div onClick={() => handleGoogleSelect('your.email@gmail.com')} style={{display:'flex', alignItems:'center', gap:'15px', padding:'10px', borderBottom:'1px solid #eee', cursor:'pointer', textAlign:'left'}}>
-                      <div style={{width:'35px', height:'35px', background:'#5e35b1', borderRadius:'50%', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold'}}>Y</div>
-                      <div>
-                        <div style={{fontWeight:'bold', color:'#333', fontSize:'14px'}}>Your Google Account</div>
-                        <div style={{color:'#666', fontSize:'12px'}}>your.email@gmail.com</div>
-                      </div>
-                   </div>
+                <div style={{background:'white', margin:'-40px', padding:'40px', borderRadius:'24px', height:'100%', display:'flex', flexDirection:'column', color:'#333'}}>
+                    <div style={{textAlign:'center', marginBottom:'20px'}}>
+                        <span style={{color:'#DB4437', fontWeight:'bold', fontSize:'24px'}}>Google</span>
+                        <h3 style={{margin:'10px 0', fontSize:'18px', color:'#202124'}}>Selecciona una cuenta</h3>
+                        <p style={{color:'#5f6368', fontSize:'14px'}}>para ir a bx-core.app</p>
+                    </div>
 
-                   <div onClick={() => handleGoogleSelect('dev.test@gmail.com')} style={{display:'flex', alignItems:'center', gap:'15px', padding:'10px', borderBottom:'1px solid #eee', cursor:'pointer', textAlign:'left'}}>
-                      <div style={{width:'35px', height:'35px', background:'#1e88e5', borderRadius:'50%', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold'}}>D</div>
-                      <div>
-                        <div style={{fontWeight:'bold', color:'#333', fontSize:'14px'}}>Developer Test</div>
-                        <div style={{color:'#666', fontSize:'12px'}}>dev.test@gmail.com</div>
-                      </div>
-                   </div>
+                    <div style={{flex:1, display:'flex', flexDirection:'column', gap:'10px'}}>
+                        {/* CUENTA 1 */}
+                        <div onClick={() => handleGoogleAuth('tu.cuenta.google@gmail.com')} style={{display:'flex', alignItems:'center', gap:'15px', padding:'12px', borderBottom:'1px solid #e0e0e0', cursor:'pointer', transition:'0.2s', borderRadius:'8px', hover:{background:'#f5f5f5'}}}>
+                            <div style={{width:'40px', height:'40px', background:'#1a73e8', borderRadius:'50%', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold'}}>T</div>
+                            <div style={{textAlign:'left'}}>
+                                <div style={{fontWeight:'600', fontSize:'14px', color:'#3c4043'}}>Tu Cuenta Principal</div>
+                                <div style={{fontSize:'12px', color:'#5f6368'}}>tu.cuenta.google@gmail.com</div>
+                            </div>
+                        </div>
 
-                   <button style={{marginTop:'20px', background:'transparent', border:'none', color:'#1a73e8', fontWeight:'bold', cursor:'pointer'}} onClick={() => setView('landing')}>CANCEL</button>
-               </div>
+                        {/* CUENTA 2 */}
+                        <div onClick={() => handleGoogleAuth('dev.test@gmail.com')} style={{display:'flex', alignItems:'center', gap:'15px', padding:'12px', borderBottom:'1px solid #e0e0e0', cursor:'pointer', transition:'0.2s'}}>
+                             <div style={{width:'40px', height:'40px', background:'#e37400', borderRadius:'50%', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold'}}>D</div>
+                            <div style={{textAlign:'left'}}>
+                                <div style={{fontWeight:'600', fontSize:'14px', color:'#3c4043'}}>Developer Test</div>
+                                <div style={{fontSize:'12px', color:'#5f6368'}}>dev.test@gmail.com</div>
+                            </div>
+                        </div>
+                         
+                         {/* USAR OTRA CUENTA */}
+                         <div style={{display:'flex', alignItems:'center', gap:'15px', padding:'12px', cursor:'pointer'}}>
+                             <div style={{width:'40px', height:'40px', borderRadius:'50%', border:'1px solid #dadce0', display:'flex', alignItems:'center', justifyContent:'center', color:'#5f6368'}}>?</div>
+                             <div style={{fontWeight:'600', fontSize:'14px', color:'#3c4043'}}>Usar otra cuenta</div>
+                         </div>
+                    </div>
+                    
+                    <button style={{marginTop:'auto', background:'transparent', border:'none', color:'#1a73e8', fontWeight:'bold', fontSize:'14px', cursor:'pointer'}} onClick={() => setView('landing')}>CANCELAR</button>
+                </div>
             )}
 
             {view === 'register' && (
@@ -364,6 +372,7 @@ export default function BXCore() {
             {view === 'pin_setup' && (
               <>
                 <p style={{color:theme.text, textAlign:'center', fontSize:'12px', marginBottom:'20px'}}>
+                    {/* MENSAJE ADAPTATIVO */}
                     {email.includes('@') ? 'GOOGLE VERIFIED. ' : ''} SET YOUR MASTER PIN
                 </p>
                 <input style={styles.input} type="password" placeholder="PIN (4+ digits)" onChange={e => setPin(e.target.value)} />
