@@ -1,60 +1,51 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 /**
- * BX-GATEWAY v6.5 - SECURE ACCESS TERMINAL
- * ARCHITECTURE: CLIENT-SIDE VALIDATION + 30S TIMER ENGINE
- * VISUALS: GLASSMORPHISM + PULSE ANIMATIONS
+ * BX GATEWAY UNLOCKER v5.0 - CLANDESTINE EDITION
+ * DESIGN: UNDERGROUND SECURITY BYPASS
+ * FEATURE: 30s HARD-WAIT PER SECURITY LAYER
  */
 
-const STYLE_CONFIG = {
-  accent: '#00d2ff',
-  bg: '#010409',
-  card: 'rgba(13, 17, 23, 0.94)',
-  border: '#30363d',
-  text: '#f0f6fc',
-  muted: '#8b949e',
-  success: '#3fb950'
+const CFG = {
+  accent: '#00ff41',
+  bg: '#010101',
+  surface: '#050505',
+  border: '#111',
+  text: '#ffffff',
+  muted: '#333'
 };
 
-export default function BxGateway() {
-  const [data, setData] = useState(null);
-  const [currentLayer, setCurrentLayer] = useState(0);
-  const [isWaiting, setIsWaiting] = useState(false);
-  const [timer, setTimer] = useState(30);
-  const [readyToFinalize, setReadyToFinalize] = useState(false);
-  const timerRef = useRef(null);
+export default function BxUnlock() {
+  const [asset, setAsset] = useState(null);
+  const [step, setStep] = useState(0);
+  const [waiting, setWaiting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(30);
+  const timerInterval = useRef(null);
 
-  // --- [DECODIFICACIÓN DE PAYLOAD] ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const payload = params.get('payload');
-    
-    if (payload) {
+    const p = params.get('payload');
+    if (p) {
       try {
-        const decoded = JSON.parse(atob(payload));
-        setData(decoded);
+        const decoded = JSON.parse(atob(p));
+        setAsset(decoded);
       } catch (e) {
-        console.error("Payload corruption detected.");
+        console.error("DATA_CORRUPTION_DETECTED");
       }
     }
   }, []);
 
-  // --- [MOTOR DEL TEMPORIZADOR] ---
-  const executeLayerBypass = (url, index) => {
+  const triggerStep = (url, index) => {
     window.open(url, '_blank');
-    setIsWaiting(true);
-    setTimer(30);
+    setWaiting(true);
+    setTimeLeft(30);
 
-    timerRef.current = setInterval(() => {
-      setTimer(prev => {
+    timerInterval.current = setInterval(() => {
+      setTimeLeft(prev => {
         if (prev <= 1) {
-          clearInterval(timerRef.current);
-          setIsWaiting(false);
-          setCurrentLayer(index + 1);
-          
-          if (data && index + 1 === data.steps.length) {
-            setReadyToFinalize(true);
-          }
+          clearInterval(timerInterval.current);
+          setWaiting(false);
+          setStep(index + 1);
           return 30;
         }
         return prev - 1;
@@ -62,104 +53,80 @@ export default function BxGateway() {
     }, 1000);
   };
 
-  // --- [COMPONENTES VISUALES] ---
-  const Layout = ({ children }) => (
-    <div style={{ 
-      background: STYLE_CONFIG.bg, minHeight: '100vh', display: 'flex', 
-      alignItems: 'center', justifyContent: 'center', padding: '20px', 
-      fontFamily: 'Inter, sans-serif', color: STYLE_CONFIG.text,
-      backgroundImage: `radial-gradient(circle at 2px 2px, #161b22 1px, transparent 0)`,
-      backgroundSize: '40px 40px'
-    }}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .bx-card { background: ${STYLE_CONFIG.card}; border: 1px solid ${STYLE_CONFIG.border}; border-radius: 40px; padding: 50px; width: 100%; max-width: 500px; text-align: center; backdrop-filter: blur(20px); box-shadow: 0 40px 100px rgba(0,0,0,0.8); animation: fadeIn 0.8s ease-out; }
-        .layer-item { background: #0d1117; border: 1px solid ${STYLE_CONFIG.border}; border-radius: 20px; padding: 25px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; transition: 0.4s; }
-        .layer-item.active { border-color: ${STYLE_CONFIG.accent}; background: ${STYLE_CONFIG.accent}08; }
-        .layer-item.locked { opacity: 0.4; pointer-events: none; }
-        .layer-item.verified { border-color: ${STYLE_CONFIG.success}; background: ${STYLE_CONFIG.success}08; }
-        .timer-badge { background: ${STYLE_CONFIG.accent}; color: black; font-weight: 900; padding: 5px 12px; border-radius: 50px; font-size: 0.75rem; }
-        .action-btn { background: ${STYLE_CONFIG.accent}; color: black; border: none; padding: 12px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
-        .action-btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
-        .progress-bar { height: 4px; background: #161b22; width: 100%; border-radius: 10px; margin-top: 15px; overflow: hidden; }
-        .progress-fill { height: 100%; background: ${STYLE_CONFIG.accent}; transition: width 1s linear; }
-        @keyframes pulseGlow { 0% { box-shadow: 0 0 10px ${STYLE_CONFIG.accent}22; } 50% { box-shadow: 0 0 30px ${STYLE_CONFIG.accent}44; } 100% { box-shadow: 0 0 10px ${STYLE_CONFIG.accent}22; } }
-        .final-btn { width: 100%; padding: 25px; border-radius: 20px; border: none; font-weight: 900; font-size: 1.2rem; cursor: pointer; transition: 0.5s; margin-top: 20px; }
-        .final-btn.active { background: linear-gradient(45deg, ${STYLE_CONFIG.accent}, #0072ff); color: white; animation: pulseGlow 2s infinite; }
-        .final-btn.inactive { background: #21262d; color: ${STYLE_CONFIG.muted}; }
-      `}} />
-      {children}
-    </div>
-  );
-
-  if (!data) return (
-    <Layout>
-      <div className="bx-card">
-        <h1 style={{ color: STYLE_CONFIG.danger }}>CRITICAL ERROR</h1>
-        <p style={{ color: STYLE_CONFIG.muted }}>Payload data is missing or corrupted. Please contact the administrator.</p>
+  if (!asset) {
+    return (
+      <div style={{ background: '#000', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff003c' }}>
+        <h1 style={{ letterSpacing: '10px' }}>403: ACCESS_DENIED</h1>
       </div>
-    </Layout>
-  );
+    );
+  }
 
   return (
-    <Layout>
-      <div className="bx-card">
-        {/* HEADER */}
-        <div style={{ marginBottom: '40px' }}>
-          <div style={{ position: 'relative', display: 'inline-block' }}>
-            <img src={data.image} style={{ width: '130px', height: '130px', borderRadius: '35px', border: `4px solid ${STYLE_CONFIG.accent}`, objectFit: 'cover', marginBottom: '20px' }} />
-            <div style={{ position: 'absolute', top: -10, right: -10, background: STYLE_CONFIG.success, color: 'white', padding: '5px 10px', borderRadius: '50px', fontSize: '0.6rem', fontWeight: '900' }}>ENCRYPTED</div>
-          </div>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: '1000', margin: 0, letterSpacing: '-2px' }}>{data.title}</h1>
-          <p style={{ color: STYLE_CONFIG.muted, fontSize: '0.95rem', marginTop: '10px' }}>Verification required to bypass node security.</p>
+    <div style={{ background: CFG.bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: 'monospace' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes flicker { 0% { opacity: 0.9; } 100% { opacity: 1; } }
+        .bx-gateway { background: ${CFG.surface}; border: 1px solid ${CFG.border}; padding: 60px; width: 100%; max-width: 500px; position: relative; animation: flicker 0.1s infinite alternate; }
+        .bx-gateway::before { content: 'BX_SECURE_GATEWAY'; position: absolute; top: -25px; left: 0; font-size: 0.6rem; color: ${CFG.accent}; letter-spacing: 5px; }
+        .layer-box { border: 1px solid #111; padding: 25px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; transition: 0.3s; }
+        .layer-box.active { border-color: ${CFG.accent}; box-shadow: 0 0 20px rgba(0,255,65,0.05); }
+        .layer-box.cleared { border-color: #222; opacity: 0.5; }
+        .timer-text { color: ${CFG.accent}; font-weight: 800; font-size: 1.2rem; }
+        .btn-action { background: ${CFG.accent}; color: #000; border: none; padding: 12px 25px; font-weight: 900; cursor: pointer; text-transform: uppercase; }
+        .btn-action:disabled { background: #111; color: #333; cursor: not-allowed; }
+        .progress-bar { position: absolute; bottom: 0; left: 0; height: 2px; background: ${CFG.accent}; transition: width 1s linear; }
+        .final-access { width: 100%; padding: 25px; margin-top: 30px; border: 1px solid ${CFG.accent}; background: transparent; color: ${CFG.accent}; font-weight: 900; font-size: 1.2rem; cursor: pointer; transition: 0.5s; }
+        .final-access:hover:not(:disabled) { background: ${CFG.accent}; color: #000; box-shadow: 0 0 40px ${CFG.accent}; }
+        .final-access:disabled { border-color: #222; color: #222; cursor: not-allowed; }
+      `}} />
+
+      <div className="bx-gateway">
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <img src={asset.i} style={{ width: '120px', height: '120px', border: `1px solid ${CFG.accent}`, padding: '5px', marginBottom: '20px', objectFit: 'cover' }} />
+          <h1 style={{ fontSize: '1.8rem', color: '#fff', margin: 0 }}>{asset.t}</h1>
+          <p style={{ color: CFG.accent, fontSize: '0.6rem', marginTop: '10px', letterSpacing: '2px' }}>DECRYPTING_ASSET_LAYERS...</p>
         </div>
 
-        {/* STEPS HUD */}
-        <div style={{ textAlign: 'left' }}>
-          {data.steps.map((url, i) => (
-            <div key={i} className={`layer-item ${currentLayer === i ? 'active' : ''} ${currentLayer > i ? 'verified' : ''} ${currentLayer < i ? 'locked' : ''}`}>
+        <div style={{ marginTop: '40px' }}>
+          {asset.s.map((url, i) => (
+            <div key={i} className={`layer-box ${step === i ? 'active' : ''} ${step > i ? 'cleared' : ''}`}>
               <div>
-                <div style={{ fontSize: '0.7rem', color: STYLE_CONFIG.muted, fontWeight: 'bold' }}>LAYER_0{i + 1}</div>
-                <div style={{ fontWeight: '900', color: currentLayer > i ? STYLE_CONFIG.success : 'white' }}>
-                  {currentLayer > i ? 'IDENTITY VERIFIED' : 'SECURITY CHALLENGE'}
+                <div style={{ fontSize: '0.6rem', color: '#444' }}>SECURITY_LAYER_0{i+1}</div>
+                <div style={{ color: step > i ? CFG.accent : '#fff', fontWeight: 'bold' }}>
+                  {step > i ? 'LAYER_CLEARED' : (step === i ? 'WAITING_FOR_BYPASS' : 'LOCKED')}
                 </div>
-                {isWaiting && currentLayer === i && (
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${((30 - timer) / 30) * 100}%` }}></div>
-                  </div>
-                )}
               </div>
-              
-              <div>
-                {currentLayer > i ? (
-                  <span style={{ color: STYLE_CONFIG.success, fontSize: '1.5rem' }}>✓</span>
-                ) : (
-                  <button 
-                    className="action-btn"
-                    disabled={currentLayer !== i || isWaiting}
-                    onClick={() => executeLayerBypass(url, i)}
-                  >
-                    {isWaiting && currentLayer === i ? `${timer}s` : 'START'}
-                  </button>
-                )}
-              </div>
+
+              {waiting && step === i ? (
+                <div className="timer-text">{timeLeft}s</div>
+              ) : (
+                <button 
+                  className="btn-action" 
+                  disabled={step !== i || waiting}
+                  onClick={() => triggerStep(url, i)}
+                >
+                  {step > i ? 'OK' : 'BYPASS'}
+                </button>
+              )}
             </div>
           ))}
         </div>
 
-        {/* FINAL BUTTON */}
+        {waiting && (
+          <div className="progress-bar" style={{ width: `${(timeLeft / 30) * 100}%` }} />
+        )}
+
         <button 
-          className={`final-btn ${readyToFinalize ? 'active' : 'inactive'}`}
-          disabled={!readyToFinalize}
-          onClick={() => window.location.href = data.target}
+          className="final-access"
+          disabled={step < asset.s.length || waiting}
+          onClick={() => window.location.href = asset.d}
         >
-          {readyToFinalize ? 'ACCESS COMPLETE ASSET' : 'SYSTEM LOCKED'}
+          {step === asset.s.length ? 'GET_FINAL_ASSET' : 'SYSTEM_ENCRYPTED'}
         </button>
 
-        <footer style={{ marginTop: '50px', fontSize: '0.65rem', color: STYLE_CONFIG.muted, letterSpacing: '5px' }}>
-          BX-SYSTEMS COMMAND PORTAL // 2024
-        </footer>
+        <div style={{ marginTop: '40px', textAlign: 'center', fontSize: '0.5rem', color: '#222', letterSpacing: '3px' }}>
+          BX TRANSMISSION PROTOCOL // NO_LOG_POLICY_ACTIVE
+        </div>
       </div>
-    </Layout>
+    </div>
   );
 }
