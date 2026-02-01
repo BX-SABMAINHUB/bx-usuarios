@@ -6,13 +6,11 @@ import jwt_decode from "jwt-decode";
  * BX CORE DASHBOARD - FINAL RELEASE (v25.0.0)
  * ARCHITECTURE: MONOLITHIC CLIENT-SIDE REACT
  * DESIGN SYSTEM: INDIGO/DARK (LOOTLABS STYLE)
- * SECURITY: GOOGLE AUTH + OTP GMAIL + PIN + CAPTCHA
- * TOTAL LINES: ~550 (FULL LOGIC RESTORED)
+ * SECURITY: GOOGLE AUTH (LOGIN/REGISTER SPLIT) + OTP + PIN
  */
 
 export default function BXCore() {
   // --- [CONFIGURACIÓN CRÍTICA] ---
-  // Reemplaza esto con tu ID exacto de Google Cloud
   const GOOGLE_CLIENT_ID = "62163541365-qkfhuda81uev9b2poehqd7hic08oism6.apps.googleusercontent.com";
 
   // --- [UI & VIEW STATE] ---
@@ -86,24 +84,43 @@ export default function BXCore() {
     setTimeout(() => setNotify({ show: false, msg: '', type: 'info' }), 4000);
   };
 
-  // --- [GOOGLE AUTH HANDLER] ---
-  const handleGoogleSuccess = (credentialResponse) => {
+  // --- [GOOGLE AUTH HANDLERS] ---
+  
+  // 1. CREAR CUENTA (SIGN UP)
+  const handleGoogleRegister = (credentialResponse) => {
     try {
       const decoded = jwt_decode(credentialResponse.credential);
       setEmail(decoded.email);
       triggerNotify("GOOGLE IDENTITY VERIFIED", "success");
-      // SALTO DIRECTO AL PIN (Igual que en el video)
-      setView('pin_setup'); 
-    } catch (error) {
-      triggerNotify("GOOGLE AUTH ERROR", "error");
-    }
+      setView('pin_setup'); // Va a configurar PIN
+    } catch (error) { triggerNotify("AUTH ERROR", "error"); }
+  };
+
+  // 2. INICIAR SESIÓN (LOGIN) - Lógica Especial
+  const handleGoogleLogin = (credentialResponse) => {
+    try {
+      const decoded = jwt_decode(credentialResponse.credential);
+      const emailToCheck = decoded.email;
+      const users = JSON.parse(localStorage.getItem('bx_users_final') || '[]');
+      
+      const found = users.find(u => u.email === emailToCheck);
+      
+      if (found) {
+        // SI EXISTE -> FRAME GRANDE DIRECTO
+        setCurrentUser(found);
+        localStorage.setItem('bx_session_final', JSON.stringify(found));
+        setView('dashboard');
+        triggerNotify("WELCOME BACK", "success");
+      } else {
+        // SI NO EXISTE -> ERROR EN INGLÉS
+        triggerNotify("ACCOUNT NOT FOUND", "error");
+      }
+    } catch (error) { triggerNotify("LOGIN ERROR", "error"); }
   };
 
   // --- [AUTH CONTROLLERS] ---
   const sendGmailOtp = async () => {
-    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-      return triggerNotify("INVALID GMAIL FORMAT", "error");
-    }
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) return triggerNotify("INVALID GMAIL FORMAT", "error");
     setIsLoading(true);
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedOtp(code);
@@ -113,21 +130,17 @@ export default function BXCore() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, type: 'otp', code })
       });
-      if (res.ok) {
-        triggerNotify(`CODE SENT TO ${email}`, "success");
-        setView('otp');
-      } else { throw new Error("Server Error"); }
+      if (res.ok) { triggerNotify(`CODE SENT TO ${email}`, "success"); setView('otp'); } 
+      else { throw new Error("Server Error"); }
     } catch (e) {
       triggerNotify("SIMULATING OTP (API NOT DETECTED)", "warning");
-      console.log("DEV OTP:", code);
-      setView('otp');
+      console.log("DEV OTP:", code); setView('otp');
     } finally { setIsLoading(false); }
   };
 
   const verifyOtp = () => {
     if (otpInput === generatedOtp || otpInput === '000000') {
-      triggerNotify("EMAIL VERIFIED", "success");
-      setView('pin_setup');
+      triggerNotify("EMAIL VERIFIED", "success"); setView('pin_setup');
     } else { triggerNotify("INVALID CODE", "error"); }
   };
 
@@ -135,12 +148,7 @@ export default function BXCore() {
     if (pin.length < 4) return triggerNotify("PIN TOO SHORT", "error");
     const newUser = { email, pin, joined: new Date().toISOString() };
     const users = JSON.parse(localStorage.getItem('bx_users_final') || '[]');
-    
-    if (users.find(u => u.email === email)) {
-      triggerNotify("USER ALREADY EXISTS", "error");
-      return setView('login');
-    }
-
+    if (users.find(u => u.email === email)) { triggerNotify("USER ALREADY EXISTS", "error"); return setView('login'); }
     users.push(newUser);
     localStorage.setItem('bx_users_final', JSON.stringify(users));
     triggerNotify("ACCOUNT CREATED", "success");
@@ -151,62 +159,36 @@ export default function BXCore() {
     const users = JSON.parse(localStorage.getItem('bx_users_final') || '[]');
     const found = users.find(u => u.email === email && u.pin === pin);
     if (found) {
-      setCurrentUser(found);
-      localStorage.setItem('bx_session_final', JSON.stringify(found));
-      setView('dashboard');
-      triggerNotify("WELCOME OPERATOR", "success");
+      setCurrentUser(found); localStorage.setItem('bx_session_final', JSON.stringify(found));
+      setView('dashboard'); triggerNotify("WELCOME OPERATOR", "success");
     } else { triggerNotify("ACCESS DENIED", "error"); }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('bx_session_final');
-    window.location.reload();
-  };
+  const handleLogout = () => { localStorage.removeItem('bx_session_final'); window.location.reload(); };
 
   // --- [CORE GENERATOR LOGIC] ---
   const handleHopChange = (index, value) => {
-    const newHops = [...hopUrls];
-    newHops[index] = value;
-    setHopUrls(newHops);
+    const newHops = [...hopUrls]; newHops[index] = value; setHopUrls(newHops);
   };
 
   const generateBxLink = () => {
     if (!title || !targetUrl) return triggerNotify("MISSING CORE DATA", "error");
     if (!captchaVerified) return triggerNotify("COMPLETE SECURITY CHECK", "error");
     setIsLoading(true);
-
-    const nodeData = {
-      id: Date.now(),
-      title,
-      target: targetUrl,
-      layers: layerCount,
-      h: hopUrls.slice(0, layerCount),
-      created: new Date().toLocaleDateString()
-    };
-
+    const nodeData = { id: Date.now(), title, target: targetUrl, layers: layerCount, h: hopUrls.slice(0, layerCount), created: new Date().toLocaleDateString() };
     try {
       const payloadString = btoa(JSON.stringify(nodeData));
       const finalLink = `${window.location.origin}/unlock?bx=${payloadString}`;
       const newVault = [{ ...nodeData, url: finalLink }, ...vault];
-      setVault(newVault);
-      localStorage.setItem('bx_vault_final', JSON.stringify(newVault));
-      
+      setVault(newVault); localStorage.setItem('bx_vault_final', JSON.stringify(newVault));
       setTitle(''); setTargetUrl(''); setCaptchaVerified(false);
-      setTimeout(() => {
-        setIsLoading(false);
-        setActiveTab('manage');
-        triggerNotify("BX NODE DEPLOYED", "success");
-      }, 1000);
-    } catch (e) {
-      setIsLoading(false);
-      triggerNotify("ENCODING ERROR", "error");
-    }
+      setTimeout(() => { setIsLoading(false); setActiveTab('manage'); triggerNotify("BX NODE DEPLOYED", "success"); }, 1000);
+    } catch (e) { setIsLoading(false); triggerNotify("ENCODING ERROR", "error"); }
   };
 
   const deleteLink = (id) => {
     const filtered = vault.filter(v => v.id !== id);
-    setVault(filtered);
-    localStorage.setItem('bx_vault_final', JSON.stringify(filtered));
+    setVault(filtered); localStorage.setItem('bx_vault_final', JSON.stringify(filtered));
     triggerNotify("NODE DESTROYED", "info");
   };
 
@@ -215,10 +197,8 @@ export default function BXCore() {
     setShorteningLoading(true);
     try {
       const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(linkToShorten)}`);
-      if (res.ok) {
-        setShortenedLink(await res.text());
-        triggerNotify("LINK SHORTENED", "success");
-      } else { throw new Error(); }
+      if (res.ok) { setShortenedLink(await res.text()); triggerNotify("LINK SHORTENED", "success"); } 
+      else { throw new Error(); }
     } catch (e) { triggerNotify("ERROR SHORTENING", "error"); }
     finally { setShorteningLoading(false); }
   };
@@ -257,18 +237,35 @@ export default function BXCore() {
               {view === 'landing' && (
                 <>
                   <button style={styles.btn(true)} onClick={() => setView('register')}>REQUEST ACCESS</button>
-                  
-                  {/* BOTÓN GOOGLE ORIGINAL - IGUAL AL VIDEO */}
-                  <div style={{marginTop: '10px', display: 'flex', justifyContent: 'center'}}>
-                    <GoogleLogin 
-                      onSuccess={handleGoogleSuccess}
-                      onError={() => triggerNotify("GOOGLE AUTH FAILED", "error")}
-                      theme="filled_blue"
-                      text="continue_with"
-                      shape="pill"
-                      width="320"
-                    />
+
+                  {/* --- BOTONES GOOGLE NUEVOS (SPLIT) --- */}
+                  <div style={{marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center'}}>
+                    
+                    {/* 1. CREAR CUENTA (ENGLISH) */}
+                    <div style={{width:'100%', display:'flex', justifyContent:'center'}}>
+                      <GoogleLogin 
+                        onSuccess={handleGoogleRegister}
+                        onError={() => triggerNotify("FAILED", "error")}
+                        theme="filled_blue"
+                        text="signup"  // "Sign up with Google"
+                        shape="pill"
+                        width="320"
+                      />
+                    </div>
+
+                    {/* 2. LOGIN (ENGLISH) - DIFERENTE LOGICA */}
+                    <div style={{width:'100%', display:'flex', justifyContent:'center'}}>
+                      <GoogleLogin 
+                        onSuccess={handleGoogleLogin}
+                        onError={() => triggerNotify("FAILED", "error")}
+                        theme="outline"
+                        text="signin" // "Sign in with Google"
+                        shape="pill"
+                        width="320"
+                      />
+                    </div>
                   </div>
+                  {/* ------------------------------------- */}
 
                   <button style={styles.btn(false)} onClick={() => setView('login')}>MEMBER LOGIN</button>
                 </>
@@ -277,9 +274,7 @@ export default function BXCore() {
               {view === 'register' && (
                 <>
                   <input style={styles.input} placeholder="Enter Gmail Address" onChange={e => setEmail(e.target.value)} />
-                  <button style={styles.btn(true)} onClick={sendGmailOtp} disabled={isLoading}>
-                    {isLoading ? 'CONTACTING SERVER...' : 'SEND VERIFICATION CODE'}
-                  </button>
+                  <button style={styles.btn(true)} onClick={sendGmailOtp} disabled={isLoading}>{isLoading?'CONTACTING SERVER...':'SEND VERIFICATION CODE'}</button>
                   <p onClick={() => setView('landing')} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>CANCEL</p>
                 </>
               )}
@@ -326,7 +321,6 @@ export default function BXCore() {
   // --- [RENDER: DASHBOARD FULL] ---
   return (
     <div style={{...styles.container, display: 'flex'}}>
-      {/* SIDEBAR */}
       <div style={styles.sidebar}>
         <h2 style={{fontSize:'32px', fontWeight:'900', color:theme.primary, margin:'0 0 50px 0'}}>BX</h2>
         <div onClick={() => setActiveTab('create')} style={styles.navItem(activeTab === 'create')}><span>+</span> CREATE LINK</div>
@@ -341,7 +335,6 @@ export default function BXCore() {
         </div>
       </div>
 
-      {/* CONTENT AREA */}
       <div style={styles.content}>
         {activeTab === 'create' && (
           <div className="fade-in" style={{maxWidth: '800px'}}>
