@@ -238,28 +238,28 @@ export default function BXCore() {
                 <>
                   <button style={styles.btn(true)} onClick={() => setView('register')}>REQUEST ACCESS</button>
 
-                  {/* --- BOTONES GOOGLE NUEVOS (SPLIT) --- */}
+                  {/* --- BOTONES GOOGLE (AZUL / BLANCO) --- */}
                   <div style={{marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center'}}>
                     
-                    {/* 1. CREAR CUENTA (ENGLISH) */}
+                    {/* 1. CREAR CUENTA (ENGLISH - AZUL RELLENO) */}
                     <div style={{width:'100%', display:'flex', justifyContent:'center'}}>
                       <GoogleLogin 
                         onSuccess={handleGoogleRegister}
                         onError={() => triggerNotify("FAILED", "error")}
                         theme="filled_blue"
-                        text="signup"  // "Sign up with Google"
+                        text="signup_with"  // "Sign up with Google"
                         shape="pill"
                         width="320"
                       />
                     </div>
 
-                    {/* 2. LOGIN (ENGLISH) - DIFERENTE LOGICA */}
+                    {/* 2. LOGIN (ENGLISH - BLANCO OUTLINE) */}
                     <div style={{width:'100%', display:'flex', justifyContent:'center'}}>
                       <GoogleLogin 
                         onSuccess={handleGoogleLogin}
                         onError={() => triggerNotify("FAILED", "error")}
                         theme="outline"
-                        text="signin" // "Sign in with Google"
+                        text="signin_with" // "Sign in with Google"
                         shape="pill"
                         width="320"
                       />
