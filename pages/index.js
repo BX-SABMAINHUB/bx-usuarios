@@ -25,41 +25,40 @@ export default function BXCore() {
   const [pin, setPin] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [oldPin, setOldPin] = useState('');
+  const [newPin, setNewPin] = useState('');
 
   // --- [GENERATOR DATA] ---
   const [title, setTitle] = useState('');
+  const [desc, setDesc] = useState('');
   const [targetUrl, setTargetUrl] = useState('');
   const [layerCount, setLayerCount] = useState(1);
-  const [hopUrls, setHopUrls] = useState(['', '', '', '', '']);
+  const [hopUrls, setHopUrls] = useState(['', '', '', '']);
+  const [expireDate, setExpireDate] = useState('');
+  const [linkPass, setLinkPass] = useState('');
   const [captchaVerified, setCaptchaVerified] = useState(false);
-  const [expirationDate, setExpirationDate] = useState('');
-  const [passwordProtect, setPasswordProtect] = useState(false);
-  const [protectPassword, setProtectPassword] = useState('');
 
   // --- [VAULT & SETTINGS DATA] ---
   const [vault, setVault] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [settings, setSettings] = useState({
+    theme: 'dark',
     stealth: false,
     adIntensity: 'Balanced',
     maintenance: false,
     notifications: true,
-    darkTheme: true,
-    autoSave: true,
-    twoFactor: false,
-    emailAlerts: false
+    autoCopy: false,
+    soundEffects: false
   });
 
   // --- [SHORTCUT DATA] ---
   const [linkToShorten, setLinkToShorten] = useState('');
   const [shortenedLink, setShortenedLink] = useState('');
   const [shorteningLoading, setShorteningLoading] = useState(false);
-  const [customAlias, setCustomAlias] = useState('');
-
-  // --- [ANALYTICS DATA] ---
-  const [analytics, setAnalytics] = useState([]);
+  const [shortHistory, setShortHistory] = useState([]);
 
   // --- [THEME ENGINE] ---
-  const theme = settings.darkTheme ? {
+  const darkTheme = {
     primary: '#6366f1',
     primaryHover: '#4f46e5',
     bg: '#0b0f1a',
@@ -70,30 +69,33 @@ export default function BXCore() {
     muted: '#676d7d',
     success: '#28c76f',
     error: '#ea5455',
-    warning: '#ff9f43',
-    accent: '#a855f7',
-    gradient: 'linear-gradient(135deg, #6366f1, #a855f7)'
-  } : {
-    primary: '#4f46e5',
-    primaryHover: '#6366f1',
+    warning: '#ff9f43'
+  };
+
+  const lightTheme = {
+    primary: '#6366f1',
+    primaryHover: '#4f46e5',
     bg: '#f3f4f6',
     card: '#ffffff',
-    cardLight: '#f9fafb',
+    cardLight: '#e5e7eb',
     border: '#d1d5db',
-    text: '#111827',
+    text: '#374151',
     muted: '#6b7280',
-    success: '#16a34a',
+    success: '#10b981',
     error: '#ef4444',
-    warning: '#f59e0b',
-    accent: '#7c3aed',
-    gradient: 'linear-gradient(135deg, #4f46e5, #7c3aed)'
+    warning: '#f59e0b'
   };
+
+  const theme = settings.theme === 'dark' ? darkTheme : lightTheme;
 
   // --- [LIFECYCLE: CORE BOOT] ---
   useEffect(() => {
     setTimeout(() => {
       const savedVault = localStorage.getItem('bx_vault_final');
       if (savedVault) setVault(JSON.parse(savedVault));
+
+      const savedShort = localStorage.getItem('bx_short_history_final');
+      if (savedShort) setShortHistory(JSON.parse(savedShort));
 
       const savedSettings = localStorage.getItem('bx_settings_final');
       if (savedSettings) setSettings(JSON.parse(savedSettings));
@@ -108,17 +110,16 @@ export default function BXCore() {
     }, 1500);
   }, []);
 
-  // --- [SAVE SETTINGS ON CHANGE] ---
-  useEffect(() => {
-    if (settings.autoSave) {
-      localStorage.setItem('bx_settings_final', JSON.stringify(settings));
-    }
-  }, [settings]);
-
   // --- [SYSTEM NOTIFICATIONS] ---
   const triggerNotify = (msg, type = 'info') => {
     setNotify({ show: true, msg, type });
     setTimeout(() => setNotify({ show: false, msg: '', type: 'info' }), 4000);
+  };
+
+  // --- [SETTINGS UPDATER] ---
+  const updateSettings = (newSettings) => {
+    setSettings(newSettings);
+    localStorage.setItem('bx_settings_final', JSON.stringify(newSettings));
   };
 
   // --- [GOOGLE AUTH HANDLERS] ---
@@ -201,6 +202,19 @@ export default function BXCore() {
     } else { triggerNotify("ACCESS DENIED", "error"); }
   };
 
+  const changePin = () => {
+    if (oldPin !== currentUser.pin) return triggerNotify("INCORRECT OLD PIN", "error");
+    if (newPin.length < 4) return triggerNotify("PIN TOO SHORT", "error");
+    const users = JSON.parse(localStorage.getItem('bx_users_final') || '[]');
+    const updated = users.map(u => u.email === currentUser.email ? { ...u, pin: newPin } : u);
+    localStorage.setItem('bx_users_final', JSON.stringify(updated));
+    setCurrentUser({ ...currentUser, pin: newPin });
+    localStorage.setItem('bx_session_final', JSON.stringify({ ...currentUser, pin: newPin }));
+    triggerNotify("PIN UPDATED", "success");
+    setOldPin('');
+    setNewPin('');
+  };
+
   const handleLogout = () => { localStorage.removeItem('bx_session_final'); window.location.reload(); };
 
   // --- [CORE GENERATOR LOGIC] ---
@@ -212,24 +226,14 @@ export default function BXCore() {
     if (!title || !targetUrl) return triggerNotify("MISSING CORE DATA", "error");
     if (!captchaVerified) return triggerNotify("COMPLETE SECURITY CHECK", "error");
     setIsLoading(true);
-    const nodeData = { 
-      id: Date.now(), 
-      title, 
-      target: targetUrl, 
-      layers: layerCount, 
-      h: hopUrls.slice(0, layerCount), 
-      created: new Date().toLocaleDateString(),
-      expiration: expirationDate,
-      passwordProtected: passwordProtect,
-      protectPass: protectPassword
-    };
+    const nodeData = { id: Date.now(), title, desc, target: targetUrl, layers: layerCount, h: hopUrls.slice(0, layerCount), created: new Date().toLocaleDateString(), expire: expireDate, pass: linkPass };
     try {
       const payloadString = btoa(JSON.stringify(nodeData));
       const finalLink = `${window.location.origin}/unlock?bx=${payloadString}`;
       const newVault = [{ ...nodeData, url: finalLink }, ...vault];
       setVault(newVault); localStorage.setItem('bx_vault_final', JSON.stringify(newVault));
-      setTitle(''); setTargetUrl(''); setCaptchaVerified(false); setExpirationDate(''); setPasswordProtect(false); setProtectPassword('');
-      setTimeout(() => { setIsLoading(false); setActiveTab('manage'); triggerNotify("BX NODE DEPLOYED", "success"); }, 1000);
+      setTitle(''); setDesc(''); setTargetUrl(''); setExpireDate(''); setLinkPass(''); setCaptchaVerified(false);
+      setTimeout(() => { setIsLoading(false); setActiveTab('manage'); triggerNotify("BX NODE DEPLOYED", "success"); if (settings.autoCopy) navigator.clipboard.writeText(finalLink); }, 1000);
     } catch (e) { setIsLoading(false); triggerNotify("ENCODING ERROR", "error"); }
   };
 
@@ -239,20 +243,27 @@ export default function BXCore() {
     triggerNotify("NODE DESTROYED", "info");
   };
 
-  const editLink = (id) => {
-    // Placeholder for edit functionality
-    triggerNotify("EDIT MODE (COMING SOON)", "warning");
+  const deleteShort = (index) => {
+    const newHist = shortHistory.filter((_, i) => i !== index);
+    setShortHistory(newHist);
+    localStorage.setItem('bx_short_history_final', JSON.stringify(newHist));
+    triggerNotify("SHORT LINK REMOVED", "info");
   };
 
   const shortenLink = async () => {
     if (!linkToShorten) return triggerNotify("PASTE A LINK FIRST", "error");
     setShorteningLoading(true);
     try {
-      let apiUrl = `https://tinyurl.com/api-create.php?url=${encodeURIComponent(linkToShorten)}`;
-      if (customAlias) apiUrl += `&alias=${customAlias}`;
-      const res = await fetch(apiUrl);
-      if (res.ok) { setShortenedLink(await res.text()); triggerNotify("LINK SHORTENED", "success"); } 
-      else { throw new Error(); }
+      const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(linkToShorten)}`);
+      if (res.ok) { 
+        const short = await res.text();
+        setShortenedLink(short); 
+        triggerNotify("LINK SHORTENED", "success"); 
+        const newHist = [{ original: linkToShorten, short, date: new Date().toLocaleDateString() }, ...shortHistory];
+        setShortHistory(newHist);
+        localStorage.setItem('bx_short_history_final', JSON.stringify(newHist));
+        if (settings.autoCopy) navigator.clipboard.writeText(short);
+      } else { throw new Error(); }
     } catch (e) { triggerNotify("ERROR SHORTENING", "error"); }
     finally { setShorteningLoading(false); }
   };
@@ -264,18 +275,16 @@ export default function BXCore() {
     authCard: { background: theme.card, padding: '40px', borderRadius: '24px', width: '400px', border: `1px solid ${theme.border}`, boxShadow: '0 20px 50px rgba(0,0,0,0.5)' },
     title: { fontSize: '42px', fontWeight: '900', color: theme.primary, textAlign: 'center', marginBottom: '10px' },
     subtitle: { textAlign: 'center', color: theme.muted, fontSize: '13px', marginBottom: '30px', textTransform: 'uppercase', letterSpacing: '1px' },
-    input: { width: '100%', background: theme.bg, border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '12px', color: theme.text, fontSize: '14px', marginBottom: '15px', outline: 'none', transition: 'border-color 0.3s' },
-    btn: (primary = true) => ({ width: '100%', padding: '16px', borderRadius: '12px', border: primary ? 'none' : `1px solid ${theme.border}`, background: primary ? theme.gradient : 'transparent', color: '#fff', fontWeight: '700', cursor: 'pointer', marginTop: '10px', fontSize: '14px', transition: 'transform 0.2s, background 0.3s' }),
-    sidebar: { width: '280px', borderRight: `1px solid ${theme.border}`, padding: '30px', display: 'flex', flexDirection: 'column', background: theme.card, boxShadow: '2px 0 10px rgba(0,0,0,0.2)' },
+    input: { width: '100%', background: theme.bg, border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '12px', color: theme.text, fontSize: '14px', marginBottom: '15px', outline: 'none' },
+    btn: (primary = true) => ({ width: '100%', padding: '16px', borderRadius: '12px', border: primary ? 'none' : `1px solid ${theme.border}`, background: primary ? theme.primary : 'transparent', color: primary ? '#fff' : theme.primary, fontWeight: '700', cursor: 'pointer', marginTop: '10px', fontSize: '14px' }),
+    sidebar: { width: '280px', borderRight: `1px solid ${theme.border}`, padding: '30px', display: 'flex', flexDirection: 'column' },
     content: { flex: 1, padding: '50px', overflowY: 'auto', height: '100vh' },
-    navItem: (active) => ({ padding: '15px 20px', borderRadius: '12px', cursor: 'pointer', color: active ? theme.primary : theme.muted, background: active ? `${theme.primary}15` : 'transparent', border: active ? `1px solid ${theme.primary}30` : 'none', marginBottom: '8px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.3s, color 0.3s' }),
-    panelTitle: { fontSize: '28px', fontWeight: '800', marginBottom: '30px', color: theme.text, textShadow: '0 2px 4px rgba(0,0,0,0.1)' },
-    card: { background: theme.card, borderRadius: '20px', border: `1px solid ${theme.border}`, padding: '30px', marginBottom: '20px', boxShadow: '0 5px 15px rgba(0,0,0,0.1)', transition: 'transform 0.2s' },
+    navItem: (active) => ({ padding: '15px 20px', borderRadius: '12px', cursor: 'pointer', color: active ? theme.primary : theme.muted, background: active ? `${theme.primary}15` : 'transparent', border: active ? `1px solid ${theme.primary}30` : 'none', marginBottom: '8px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px' }),
+    panelTitle: { fontSize: '28px', fontWeight: '800', marginBottom: '30px', color: theme.text },
+    card: { background: theme.card, borderRadius: '20px', border: `1px solid ${theme.border}`, padding: '30px', marginBottom: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' },
     label: { fontSize: '11px', fontWeight: 'bold', color: theme.muted, marginBottom: '8px', display: 'block', textTransform: 'uppercase' },
-    captchaBox: { display: 'flex', alignItems: 'center', gap: '15px', background: theme.bg, padding: '15px', borderRadius: '12px', border: `1px solid ${captchaVerified ? theme.success : theme.border}`, cursor: 'pointer', transition: 'border-color 0.3s' },
-    checkCircle: { width: '24px', height: '24px', borderRadius: '4px', border: `2px solid ${captchaVerified ? theme.success : theme.muted}`, background: captchaVerified ? theme.success : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'background 0.3s' },
-    toggle: { display: 'flex', alignItems: 'center', gap: '10px' },
-    select: { width: '100%', background: theme.bg, border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '12px', color: theme.text, fontSize: '14px', outline: 'none', appearance: 'none' }
+    captchaBox: { display: 'flex', alignItems: 'center', gap: '15px', background: theme.bg, padding: '15px', borderRadius: '12px', border: `1px solid ${captchaVerified ? theme.success : theme.border}`, cursor: 'pointer' },
+    checkCircle: { width: '24px', height: '24px', borderRadius: '4px', border: `2px solid ${captchaVerified ? theme.success : theme.muted}`, background: captchaVerified ? theme.success : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }
   };
 
   // --- [RENDER: AUTH VIEWS] ---
@@ -292,7 +301,7 @@ export default function BXCore() {
 
               {view === 'landing' && (
                 <>
-                  <button style={styles.btn(true)} onClick={() => setView('register')}>REQUEST ACCESS</button>
+                  <button style={styles.btn(true)} className="btn-primary" onClick={() => setView('register')}>REQUEST ACCESS</button>
 
                   {/* --- BOTONES GOOGLE (AZUL / BLANCO) --- */}
                   <div style={{marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center'}}>
@@ -323,14 +332,14 @@ export default function BXCore() {
                   </div>
                   {/* ------------------------------------- */}
 
-                  <button style={styles.btn(false)} onClick={() => setView('login')}>MEMBER LOGIN</button>
+                  <button style={styles.btn(false)} className="btn-secondary" onClick={() => setView('login')}>MEMBER LOGIN</button>
                 </>
               )}
 
               {view === 'register' && (
                 <>
                   <input style={styles.input} placeholder="Enter Gmail Address" onChange={e => setEmail(e.target.value)} />
-                  <button style={styles.btn(true)} onClick={sendGmailOtp} disabled={isLoading}>{isLoading?'CONTACTING SERVER...':'SEND VERIFICATION CODE'}</button>
+                  <button style={styles.btn(true)} className="btn-primary" onClick={sendGmailOtp} disabled={isLoading}>{isLoading?'CONTACTING SERVER...':'SEND VERIFICATION CODE'}</button>
                   <p onClick={() => setView('landing')} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>CANCEL</p>
                 </>
               )}
@@ -339,7 +348,7 @@ export default function BXCore() {
                 <>
                   <p style={{color:theme.success, textAlign:'center', fontSize:'12px', marginBottom:'20px'}}>CODE SENT TO {email}</p>
                   <input style={{...styles.input, textAlign:'center', letterSpacing:'5px', fontSize:'20px'}} placeholder="------" maxLength={6} onChange={e => setOtpInput(e.target.value)} />
-                  <button style={styles.btn(true)} onClick={verifyOtp}>VERIFY IDENTITY</button>
+                  <button style={styles.btn(true)} className="btn-primary" onClick={verifyOtp}>VERIFY IDENTITY</button>
                 </>
               )}
 
@@ -347,7 +356,7 @@ export default function BXCore() {
                 <>
                   <p style={{color:theme.success, textAlign:'center', fontSize:'12px', marginBottom:'20px'}}>VERIFIED: {email}</p>
                   <input style={styles.input} type="password" placeholder="SET MASTER PIN (4+ digits)" onChange={e => setPin(e.target.value)} />
-                  <button style={styles.btn(true)} onClick={registerUser}>INITIALIZE ACCOUNT</button>
+                  <button style={styles.btn(true)} className="btn-primary" onClick={registerUser}>INITIALIZE ACCOUNT</button>
                 </>
               )}
 
@@ -355,7 +364,7 @@ export default function BXCore() {
                 <>
                   <input style={styles.input} placeholder="Gmail" onChange={e => setEmail(e.target.value)} />
                   <input style={styles.input} type="password" placeholder="Master PIN" onChange={e => setPin(e.target.value)} />
-                  <button style={styles.btn(true)} onClick={loginUser}>AUTHENTICATE</button>
+                  <button style={styles.btn(true)} className="btn-primary" onClick={loginUser}>AUTHENTICATE</button>
                   <p onClick={() => setView('landing')} style={{textAlign:'center', color: theme.muted, fontSize:'12px', marginTop:'20px', cursor:'pointer'}}>BACK</p>
                 </>
               )}
@@ -368,26 +377,28 @@ export default function BXCore() {
             @keyframes fadeIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
             @keyframes pulse { 0%{opacity:0.5} 50%{opacity:1} 100%{opacity:0.5} }
             @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
-            input:focus { border-color: ${theme.primary}; }
-            button:hover { transform: scale(1.02); }
-            .card:hover { transform: translateY(-5px); }
           `}</style>
         </div>
       </GoogleOAuthProvider>
     );
   }
 
+  // --- [FILTERED VAULT] ---
+  const filteredVault = vault.filter(v => 
+    v.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (v.desc && v.desc.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
   // --- [RENDER: DASHBOARD FULL] ---
   return (
     <div style={{...styles.container, display: 'flex'}}>
       <div style={styles.sidebar}>
         <h2 style={{fontSize:'32px', fontWeight:'900', color:theme.primary, margin:'0 0 50px 0'}}>BX</h2>
-        <div onClick={() => setActiveTab('create')} style={styles.navItem(activeTab === 'create')}><span>+</span> CREATE LINK</div>
-        <div onClick={() => setActiveTab('manage')} style={styles.navItem(activeTab === 'manage')}><span>=</span> MY VAULT</div>
-        <div onClick={() => setActiveTab('shortcut')} style={styles.navItem(activeTab === 'shortcut')}><span>✂</span> SHORT CUT</div>
-        <div onClick={() => setActiveTab('analytics')} style={styles.navItem(activeTab === 'analytics')}><span>📊</span> ANALYTICS</div>
-        <div onClick={() => setActiveTab('settings')} style={styles.navItem(activeTab === 'settings')}><span>⚙</span> SETTINGS</div>
-        <div onClick={() => setActiveTab('help')} style={styles.navItem(activeTab === 'help')}><span>?</span> HELP</div>
+        <div onClick={() => setActiveTab('create')} style={styles.navItem(activeTab === 'create')} className="nav-item"><span>+</span> CREATE LINK</div>
+        <div onClick={() => setActiveTab('manage')} style={styles.navItem(activeTab === 'manage')} className="nav-item"><span>=</span> MY VAULT</div>
+        <div onClick={() => setActiveTab('shortcut')} style={styles.navItem(activeTab === 'shortcut')} className="nav-item"><span>✂</span> SHORT CUT</div>
+        <div onClick={() => setActiveTab('profile')} style={styles.navItem(activeTab === 'profile')} className="nav-item"><span>👤</span> PROFILE</div>
+        <div onClick={() => setActiveTab('settings')} style={styles.navItem(activeTab === 'settings')} className="nav-item"><span>⚙</span> SETTINGS</div>
 
         <div style={{marginTop: 'auto', paddingTop: '20px', borderTop: `1px solid ${theme.border}`}}>
           <div style={{fontSize:'10px', color:theme.muted, marginBottom:'5px'}}>OPERATOR ID</div>
@@ -405,19 +416,14 @@ export default function BXCore() {
                 <div><span style={styles.label}>ASSET TITLE</span><input style={styles.input} placeholder="e.g. Premium Pack" value={title} onChange={e => setTitle(e.target.value)} /></div>
                 <div><span style={styles.label}>DESTINATION URL</span><input style={styles.input} placeholder="https://..." value={targetUrl} onChange={e => setTargetUrl(e.target.value)} /></div>
               </div>
-              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px'}}>
-                <div><span style={styles.label}>EXPIRATION DATE</span><input style={styles.input} type="date" value={expirationDate} onChange={e => setExpirationDate(e.target.value)} /></div>
-                <div style={styles.toggle}>
-                  <input type="checkbox" checked={passwordProtect} onChange={() => setPasswordProtect(!passwordProtect)} />
-                  <span style={styles.label}>PASSWORD PROTECT</span>
-                </div>
-              </div>
-              {passwordProtect && <input style={styles.input} type="password" placeholder="Set Protection Password" value={protectPassword} onChange={e => setProtectPassword(e.target.value)} />}
+              <div style={{marginBottom: '20px'}}><span style={styles.label}>NODE DESCRIPTION</span><input style={styles.input} placeholder="Optional internal notes" value={desc} onChange={e => setDesc(e.target.value)} /></div>
+              <div style={{marginBottom: '20px'}}><span style={styles.label}>EXPIRATION DATE (OPTIONAL)</span><input style={styles.input} type="date" value={expireDate} onChange={e => setExpireDate(e.target.value)} /></div>
+              <div style={{marginBottom: '20px'}}><span style={styles.label}>LINK PASSWORD (OPTIONAL)</span><input style={styles.input} placeholder="Protect access" value={linkPass} onChange={e => setLinkPass(e.target.value)} /></div>
               <div style={{background: theme.bg, padding: '20px', borderRadius: '12px', border: `1px solid ${theme.border}`}}>
                  <div style={{display:'flex', justifyContent:'space-between', marginBottom:'15px'}}>
                    <span style={styles.label}>SECURITY LAYERS</span>
-                   <select value={layerCount} onChange={e => setLayerCount(Number(e.target.value))} style={styles.select}>
-                     <option value={1}>1 Layer (30s)</option><option value={2}>2 Layers (60s)</option><option value={3}>3 Layers (90s)</option><option value={4}>4 Layers (120s)</option><option value={5}>5 Layers (150s)</option>
+                   <select value={layerCount} onChange={e => setLayerCount(Number(e.target.value))} style={{background:theme.card, color:theme.text, border:'none', padding:'5px', borderRadius:'5px'}}>
+                     <option value={1}>1 Layer (30s)</option><option value={2}>2 Layers (60s)</option><option value={3}>3 Layers (90s)</option><option value={4}>4 Layers (120s)</option>
                    </select>
                  </div>
                  {Array.from({length: layerCount}).map((_, i) => (
@@ -427,7 +433,7 @@ export default function BXCore() {
             </div>
             <div style={{display: 'flex', gap: '20px', alignItems: 'center'}}>
                <div style={{flex: 1}}><div style={styles.captchaBox} onClick={() => setCaptchaVerified(!captchaVerified)}><div style={styles.checkCircle}>{captchaVerified && '✓'}</div><div><div style={{fontSize: '12px', fontWeight: 'bold'}}>I am not a robot</div><div style={{fontSize: '10px', color: theme.muted}}>BX-CloudFlare Verification</div></div></div></div>
-               <div style={{flex: 1}}><button style={styles.btn(true)} onClick={generateBxLink} disabled={!captchaVerified || isLoading}>{isLoading ? 'ENCRYPTING...' : 'GENERATE SECURE LINK'}</button></div>
+               <div style={{flex: 1}}><button style={styles.btn(true)} className="btn-primary" onClick={generateBxLink} disabled={!captchaVerified || isLoading}>{isLoading ? 'ENCRYPTING...' : 'GENERATE SECURE LINK'}</button></div>
             </div>
           </div>
         )}
@@ -435,16 +441,22 @@ export default function BXCore() {
         {activeTab === 'manage' && (
           <div className="fade-in">
             <h1 style={styles.panelTitle}>Active Vault</h1>
-            {vault.length === 0 ? <div style={{textAlign: 'center', color: theme.muted, marginTop: '100px'}}>NO ACTIVE NODES</div> : vault.map((node) => (
-              <div key={node.id} style={{...styles.card, display: 'flex', alignItems: 'center', gap: '20px'}}>
-                <div style={{flex: 1}}><div style={{fontWeight: 'bold', color: theme.text}}>{node.title}</div><div style={{fontSize: '12px', color: theme.primary}}>{node.layers} Layers • {node.created} {node.expiration ? `• Expires: ${node.expiration}` : ''}</div></div>
+            <input style={{...styles.input, marginBottom: '20px'}} placeholder="Search nodes by title or description..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            {filteredVault.length === 0 ? <div style={{textAlign: 'center', color: theme.muted, marginTop: '100px'}}>NO ACTIVE NODES</div> : filteredVault.map((node) => {
+              const isExpired = node.expire && new Date(node.expire) < new Date();
+              return (
+              <div key={node.id} style={{...styles.card, display: 'flex', alignItems: 'center', gap: '20px', opacity: isExpired ? 0.5 : 1}}>
+                <div style={{flex: 1}}>
+                  <div style={{fontWeight: 'bold', color: theme.text}}>{node.title} {isExpired && '(Expired)'}</div>
+                  <div style={{fontSize: '12px', color: theme.muted}}>{node.desc || 'No description'}</div>
+                  <div style={{fontSize: '12px', color: theme.primary}}>{node.layers} Layers • {node.created} • Exp: {node.expire || 'Permanent'}</div>
+                </div>
                 <div style={{display:'flex', gap:'10px'}}>
                   <button onClick={() => {navigator.clipboard.writeText(node.url); triggerNotify("LINK COPIED", "success")}} style={{background:theme.cardLight, border:'none', color:theme.text, padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}}>COPY</button>
-                  <button onClick={() => editLink(node.id)} style={{background:`${theme.warning}20`, border:'none', color:theme.warning, padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}}>EDIT</button>
                   <button onClick={() => deleteLink(node.id)} style={{background:`${theme.error}20`, border:'none', color:theme.error, padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}}>DELETE</button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
 
@@ -454,26 +466,40 @@ export default function BXCore() {
             <div style={styles.card}>
               <span style={styles.label}>PASTE LONG LINK</span>
               <input style={styles.input} placeholder="https://..." value={linkToShorten} onChange={e => setLinkToShorten(e.target.value)} />
-              <span style={styles.label}>CUSTOM ALIAS (OPTIONAL)</span>
-              <input style={styles.input} placeholder="e.g. mylink" value={customAlias} onChange={e => setCustomAlias(e.target.value)} />
-              <button style={styles.btn(true)} onClick={shortenLink} disabled={shorteningLoading}>{shorteningLoading ? 'SHORTENING...' : 'SHORTEN LINK'}</button>
+              <button style={styles.btn(true)} className="btn-primary" onClick={shortenLink} disabled={shorteningLoading}>{shorteningLoading ? 'SHORTENING...' : 'SHORTEN LINK'}</button>
               {shortenedLink && (
                 <div style={{marginTop: '20px'}}>
                   <span style={styles.label}>RESULT</span>
                   <input style={styles.input} value={shortenedLink} readOnly />
-                  <button style={styles.btn(false)} onClick={() => {navigator.clipboard.writeText(shortenedLink); triggerNotify("COPIED", "success")}}>COPY SHORT LINK</button>
+                  <button style={styles.btn(false)} className="btn-secondary" onClick={() => {navigator.clipboard.writeText(shortenedLink); triggerNotify("COPIED", "success")}}>COPY SHORT LINK</button>
                 </div>
               )}
             </div>
+            <h1 style={{...styles.panelTitle, marginTop: '40px', fontSize: '24px'}}>Shorten History</h1>
+            {shortHistory.length === 0 ? <div style={{textAlign: 'center', color: theme.muted}}>NO HISTORY</div> : shortHistory.map((h, i) => (
+              <div key={i} style={styles.card}>
+                <div style={{fontWeight: 'bold', color: theme.text}}>Original: {h.original}</div>
+                <div style={{fontSize: '12px', color: theme.muted}}>Short: {h.short}</div>
+                <div style={{fontSize: '12px', color: theme.primary}}>Created: {h.date}</div>
+                <div style={{display: 'flex', gap: '10px', marginTop: '10px'}}>
+                  <button style={{background:theme.cardLight, border:'none', color:theme.text, padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}} onClick={() => {navigator.clipboard.writeText(h.short); triggerNotify("COPIED", "success")}}>COPY</button>
+                  <button style={{background:`${theme.error}20`, border:'none', color:theme.error, padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}} onClick={() => deleteShort(i)}>DELETE</button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
-        {activeTab === 'analytics' && (
-          <div className="fade-in" style={{maxWidth: '800px'}}>
-            <h1 style={styles.panelTitle}>Node Analytics</h1>
+        {activeTab === 'profile' && (
+          <div className="fade-in" style={{maxWidth: '600px'}}>
+            <h1 style={styles.panelTitle}>Operator Profile</h1>
             <div style={styles.card}>
-              <p style={{color: theme.muted}}>Analytics data coming soon. Track clicks, views, and more.</p>
-              {/* Placeholder for charts or data */}
+              <div style={{marginBottom: '15px'}}><span style={styles.label}>EMAIL</span><div style={{color: theme.text}}>{currentUser.email}</div></div>
+              <div style={{marginBottom: '15px'}}><span style={styles.label}>JOINED</span><div style={{color: theme.text}}>{currentUser.joined}</div></div>
+              <div style={{marginBottom: '20px'}}><span style={styles.label}>CHANGE MASTER PIN</span></div>
+              <input style={styles.input} type="password" placeholder="Old PIN" value={oldPin} onChange={e => setOldPin(e.target.value)} />
+              <input style={styles.input} type="password" placeholder="New PIN (4+ digits)" value={newPin} onChange={e => setNewPin(e.target.value)} />
+              <button style={styles.btn(true)} className="btn-primary" onClick={changePin}>UPDATE PIN</button>
             </div>
           </div>
         )}
@@ -483,54 +509,49 @@ export default function BXCore() {
             <h1 style={styles.panelTitle}>System Config</h1>
             <div style={styles.card}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Theme</div><div style={{fontSize:'12px', color:theme.muted}}>Interface style</div></div>
+                <select style={{background:theme.bg, color:theme.text, border:`1px solid ${theme.border}`, padding:'5px', borderRadius:'5px'}} value={settings.theme} onChange={e => updateSettings({...settings, theme: e.target.value})}><option>dark</option><option>light</option></select>
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
                 <div><div style={{fontWeight:'bold'}}>Stealth Mode</div><div style={{fontSize:'12px', color:theme.muted}}>Hide referral headers</div></div>
-                <input type="checkbox" checked={settings.stealth} onChange={() => setSettings({...settings, stealth: !settings.stealth})} />
+                <input type="checkbox" checked={settings.stealth} onChange={() => updateSettings({...settings, stealth: !settings.stealth})} />
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
                 <div><div style={{fontWeight:'bold'}}>Ad Intensity</div><div style={{fontSize:'12px', color:theme.muted}}>Balanced loading</div></div>
-                <select style={{background:theme.bg, color:theme.text, border:`1px solid ${theme.border}`}} value={settings.adIntensity} onChange={e => setSettings({...settings, adIntensity: e.target.value})}><option>Low</option><option>Balanced</option><option>High</option><option>Max</option></select>
+                <select style={{background:theme.bg, color:theme.text, border:`1px solid ${theme.border}`, padding:'5px', borderRadius:'5px'}} value={settings.adIntensity} onChange={e => updateSettings({...settings, adIntensity: e.target.value})}><option>Low</option><option>Balanced</option><option>High</option><option>Extreme</option></select>
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
-                <div><div style={{fontWeight:'bold'}}>Dark Theme</div><div style={{fontSize:'12px', color:theme.muted}}>Enable dark mode</div></div>
-                <input type="checkbox" checked={settings.darkTheme} onChange={() => setSettings({...settings, darkTheme: !settings.darkTheme})} />
+                <div><div style={{fontWeight:'bold'}}>Notifications</div><div style={{fontSize:'12px', color:theme.muted}}>Enable alerts</div></div>
+                <input type="checkbox" checked={settings.notifications} onChange={() => updateSettings({...settings, notifications: !settings.notifications})} />
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
-                <div><div style={{fontWeight:'bold'}}>Auto Save</div><div style={{fontSize:'12px', color:theme.muted}}>Save changes automatically</div></div>
-                <input type="checkbox" checked={settings.autoSave} onChange={() => setSettings({...settings, autoSave: !settings.autoSave})} />
+                <div><div style={{fontWeight:'bold'}}>Auto Copy</div><div style={{fontSize:'12px', color:theme.muted}}>Copy links automatically</div></div>
+                <input type="checkbox" checked={settings.autoCopy} onChange={() => updateSettings({...settings, autoCopy: !settings.autoCopy})} />
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
-                <div><div style={{fontWeight:'bold'}}>Two-Factor Auth</div><div style={{fontSize:'12px', color:theme.muted}}>Extra security layer</div></div>
-                <input type="checkbox" checked={settings.twoFactor} onChange={() => setSettings({...settings, twoFactor: !settings.twoFactor})} />
-              </div>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
-                <div><div style={{fontWeight:'bold'}}>Email Alerts</div><div style={{fontSize:'12px', color:theme.muted}}>Receive notifications via email</div></div>
-                <input type="checkbox" checked={settings.emailAlerts} onChange={() => setSettings({...settings, emailAlerts: !settings.emailAlerts})} />
+                <div><div style={{fontWeight:'bold'}}>Sound Effects</div><div style={{fontSize:'12px', color:theme.muted}}>Play sounds on actions</div></div>
+                <input type="checkbox" checked={settings.soundEffects} onChange={() => updateSettings({...settings, soundEffects: !settings.soundEffects})} />
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                 <div><div style={{fontWeight:'bold', color: theme.error}}>Maintenance Mode</div><div style={{fontSize:'12px', color:theme.muted}}>Disable links</div></div>
-                <input type="checkbox" checked={settings.maintenance} onChange={() => setSettings({...settings, maintenance: !settings.maintenance})} />
+                <input type="checkbox" checked={settings.maintenance} onChange={() => updateSettings({...settings, maintenance: !settings.maintenance})} />
               </div>
             </div>
             <div style={{textAlign:'center', fontSize:'10px', color:theme.muted}}>BX-CORE BUILD 25.0.0 | SECURE CONNECTION</div>
           </div>
         )}
-
-        {activeTab === 'help' && (
-          <div className="fade-in" style={{maxWidth: '800px'}}>
-            <h1 style={styles.panelTitle}>Help & Support</h1>
-            <div style={styles.card}>
-              <p style={{marginBottom: '20px'}}>Welcome to BX Core Dashboard. Here you can create secure links, manage your vault, shorten URLs, and configure settings.</p>
-              <ul style={{listStyle: 'disc', paddingLeft: '20px', color: theme.muted}}>
-                <li>Create: Deploy new secure nodes with layers.</li>
-                <li>Vault: Manage existing links.</li>
-                <li>Shortcut: Shorten any link.</li>
-                <li>Settings: Customize your experience.</li>
-              </ul>
-            </div>
-          </div>
-        )}
       </div>
-      {notify.show && <div style={{position:'fixed', bottom:'30px', right:'30px', background: notify.type === 'error' ? theme.error : theme.primary, color:'#fff', padding:'15px 30px', borderRadius:'12px', fontWeight:'bold', zIndex:1000, boxShadow: '0 5px 15px rgba(0,0,0,0.3)', animation: 'slideUp 0.3s'}}>{notify.msg}</div>}
+      {notify.show && <div style={{position:'fixed', bottom:'30px', right:'30px', background: notify.type === 'error' ? theme.error : theme.primary, color:'#fff', padding:'15px 30px', borderRadius:'12px', fontWeight:'bold', zIndex:1000}}>{notify.msg}</div>}
+      <style jsx global>{`
+        .fade-in { animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .btn-primary { transition: all 0.3s ease; }
+        .btn-primary:hover { background: ${theme.primaryHover} !important; transform: translateY(-2px); box-shadow: 0 4px 12px ${theme.primary}30; }
+        .btn-secondary { transition: all 0.3s ease; }
+        .btn-secondary:hover { background: ${theme.border} !important; transform: translateY(-2px); }
+        .nav-item { transition: all 0.3s ease; }
+        .nav-item:hover { background: ${theme.primary}10; transform: translateX(5px); }
+      `}</style>
     </div>
   );
 }
