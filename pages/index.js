@@ -30,8 +30,11 @@ export default function BXCore() {
   const [title, setTitle] = useState('');
   const [targetUrl, setTargetUrl] = useState('');
   const [layerCount, setLayerCount] = useState(1);
-  const [hopUrls, setHopUrls] = useState(['', '', '', '']);
+  const [hopUrls, setHopUrls] = useState(['', '', '', '', '']);
   const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [expirationDate, setExpirationDate] = useState('');
+  const [passwordProtect, setPasswordProtect] = useState(false);
+  const [protectPassword, setProtectPassword] = useState('');
 
   // --- [VAULT & SETTINGS DATA] ---
   const [vault, setVault] = useState([]);
@@ -39,16 +42,24 @@ export default function BXCore() {
     stealth: false,
     adIntensity: 'Balanced',
     maintenance: false,
-    notifications: true
+    notifications: true,
+    darkTheme: true,
+    autoSave: true,
+    twoFactor: false,
+    emailAlerts: false
   });
 
   // --- [SHORTCUT DATA] ---
   const [linkToShorten, setLinkToShorten] = useState('');
   const [shortenedLink, setShortenedLink] = useState('');
   const [shorteningLoading, setShorteningLoading] = useState(false);
+  const [customAlias, setCustomAlias] = useState('');
+
+  // --- [ANALYTICS DATA] ---
+  const [analytics, setAnalytics] = useState([]);
 
   // --- [THEME ENGINE] ---
-  const theme = {
+  const theme = settings.darkTheme ? {
     primary: '#6366f1',
     primaryHover: '#4f46e5',
     bg: '#0b0f1a',
@@ -59,7 +70,23 @@ export default function BXCore() {
     muted: '#676d7d',
     success: '#28c76f',
     error: '#ea5455',
-    warning: '#ff9f43'
+    warning: '#ff9f43',
+    accent: '#a855f7',
+    gradient: 'linear-gradient(135deg, #6366f1, #a855f7)'
+  } : {
+    primary: '#4f46e5',
+    primaryHover: '#6366f1',
+    bg: '#f3f4f6',
+    card: '#ffffff',
+    cardLight: '#f9fafb',
+    border: '#d1d5db',
+    text: '#111827',
+    muted: '#6b7280',
+    success: '#16a34a',
+    error: '#ef4444',
+    warning: '#f59e0b',
+    accent: '#7c3aed',
+    gradient: 'linear-gradient(135deg, #4f46e5, #7c3aed)'
   };
 
   // --- [LIFECYCLE: CORE BOOT] ---
@@ -67,6 +94,9 @@ export default function BXCore() {
     setTimeout(() => {
       const savedVault = localStorage.getItem('bx_vault_final');
       if (savedVault) setVault(JSON.parse(savedVault));
+
+      const savedSettings = localStorage.getItem('bx_settings_final');
+      if (savedSettings) setSettings(JSON.parse(savedSettings));
 
       const session = localStorage.getItem('bx_session_final');
       if (session) {
@@ -77,6 +107,13 @@ export default function BXCore() {
       }
     }, 1500);
   }, []);
+
+  // --- [SAVE SETTINGS ON CHANGE] ---
+  useEffect(() => {
+    if (settings.autoSave) {
+      localStorage.setItem('bx_settings_final', JSON.stringify(settings));
+    }
+  }, [settings]);
 
   // --- [SYSTEM NOTIFICATIONS] ---
   const triggerNotify = (msg, type = 'info') => {
@@ -175,13 +212,23 @@ export default function BXCore() {
     if (!title || !targetUrl) return triggerNotify("MISSING CORE DATA", "error");
     if (!captchaVerified) return triggerNotify("COMPLETE SECURITY CHECK", "error");
     setIsLoading(true);
-    const nodeData = { id: Date.now(), title, target: targetUrl, layers: layerCount, h: hopUrls.slice(0, layerCount), created: new Date().toLocaleDateString() };
+    const nodeData = { 
+      id: Date.now(), 
+      title, 
+      target: targetUrl, 
+      layers: layerCount, 
+      h: hopUrls.slice(0, layerCount), 
+      created: new Date().toLocaleDateString(),
+      expiration: expirationDate,
+      passwordProtected: passwordProtect,
+      protectPass: protectPassword
+    };
     try {
       const payloadString = btoa(JSON.stringify(nodeData));
       const finalLink = `${window.location.origin}/unlock?bx=${payloadString}`;
       const newVault = [{ ...nodeData, url: finalLink }, ...vault];
       setVault(newVault); localStorage.setItem('bx_vault_final', JSON.stringify(newVault));
-      setTitle(''); setTargetUrl(''); setCaptchaVerified(false);
+      setTitle(''); setTargetUrl(''); setCaptchaVerified(false); setExpirationDate(''); setPasswordProtect(false); setProtectPassword('');
       setTimeout(() => { setIsLoading(false); setActiveTab('manage'); triggerNotify("BX NODE DEPLOYED", "success"); }, 1000);
     } catch (e) { setIsLoading(false); triggerNotify("ENCODING ERROR", "error"); }
   };
@@ -192,11 +239,18 @@ export default function BXCore() {
     triggerNotify("NODE DESTROYED", "info");
   };
 
+  const editLink = (id) => {
+    // Placeholder for edit functionality
+    triggerNotify("EDIT MODE (COMING SOON)", "warning");
+  };
+
   const shortenLink = async () => {
     if (!linkToShorten) return triggerNotify("PASTE A LINK FIRST", "error");
     setShorteningLoading(true);
     try {
-      const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(linkToShorten)}`);
+      let apiUrl = `https://tinyurl.com/api-create.php?url=${encodeURIComponent(linkToShorten)}`;
+      if (customAlias) apiUrl += `&alias=${customAlias}`;
+      const res = await fetch(apiUrl);
       if (res.ok) { setShortenedLink(await res.text()); triggerNotify("LINK SHORTENED", "success"); } 
       else { throw new Error(); }
     } catch (e) { triggerNotify("ERROR SHORTENING", "error"); }
@@ -210,16 +264,18 @@ export default function BXCore() {
     authCard: { background: theme.card, padding: '40px', borderRadius: '24px', width: '400px', border: `1px solid ${theme.border}`, boxShadow: '0 20px 50px rgba(0,0,0,0.5)' },
     title: { fontSize: '42px', fontWeight: '900', color: theme.primary, textAlign: 'center', marginBottom: '10px' },
     subtitle: { textAlign: 'center', color: theme.muted, fontSize: '13px', marginBottom: '30px', textTransform: 'uppercase', letterSpacing: '1px' },
-    input: { width: '100%', background: theme.bg, border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '12px', color: '#fff', fontSize: '14px', marginBottom: '15px', outline: 'none' },
-    btn: (primary = true) => ({ width: '100%', padding: '16px', borderRadius: '12px', border: primary ? 'none' : `1px solid ${theme.border}`, background: primary ? theme.primary : 'transparent', color: '#fff', fontWeight: '700', cursor: 'pointer', marginTop: '10px', fontSize: '14px' }),
-    sidebar: { width: '280px', borderRight: `1px solid ${theme.border}`, padding: '30px', display: 'flex', flexDirection: 'column' },
+    input: { width: '100%', background: theme.bg, border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '12px', color: theme.text, fontSize: '14px', marginBottom: '15px', outline: 'none', transition: 'border-color 0.3s' },
+    btn: (primary = true) => ({ width: '100%', padding: '16px', borderRadius: '12px', border: primary ? 'none' : `1px solid ${theme.border}`, background: primary ? theme.gradient : 'transparent', color: '#fff', fontWeight: '700', cursor: 'pointer', marginTop: '10px', fontSize: '14px', transition: 'transform 0.2s, background 0.3s' }),
+    sidebar: { width: '280px', borderRight: `1px solid ${theme.border}`, padding: '30px', display: 'flex', flexDirection: 'column', background: theme.card, boxShadow: '2px 0 10px rgba(0,0,0,0.2)' },
     content: { flex: 1, padding: '50px', overflowY: 'auto', height: '100vh' },
-    navItem: (active) => ({ padding: '15px 20px', borderRadius: '12px', cursor: 'pointer', color: active ? theme.primary : theme.muted, background: active ? `${theme.primary}15` : 'transparent', border: active ? `1px solid ${theme.primary}30` : 'none', marginBottom: '8px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px' }),
-    panelTitle: { fontSize: '28px', fontWeight: '800', marginBottom: '30px', color: '#fff' },
-    card: { background: theme.card, borderRadius: '20px', border: `1px solid ${theme.border}`, padding: '30px', marginBottom: '20px' },
+    navItem: (active) => ({ padding: '15px 20px', borderRadius: '12px', cursor: 'pointer', color: active ? theme.primary : theme.muted, background: active ? `${theme.primary}15` : 'transparent', border: active ? `1px solid ${theme.primary}30` : 'none', marginBottom: '8px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.3s, color 0.3s' }),
+    panelTitle: { fontSize: '28px', fontWeight: '800', marginBottom: '30px', color: theme.text, textShadow: '0 2px 4px rgba(0,0,0,0.1)' },
+    card: { background: theme.card, borderRadius: '20px', border: `1px solid ${theme.border}`, padding: '30px', marginBottom: '20px', boxShadow: '0 5px 15px rgba(0,0,0,0.1)', transition: 'transform 0.2s' },
     label: { fontSize: '11px', fontWeight: 'bold', color: theme.muted, marginBottom: '8px', display: 'block', textTransform: 'uppercase' },
-    captchaBox: { display: 'flex', alignItems: 'center', gap: '15px', background: theme.bg, padding: '15px', borderRadius: '12px', border: `1px solid ${captchaVerified ? theme.success : theme.border}`, cursor: 'pointer' },
-    checkCircle: { width: '24px', height: '24px', borderRadius: '4px', border: `2px solid ${captchaVerified ? theme.success : theme.muted}`, background: captchaVerified ? theme.success : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }
+    captchaBox: { display: 'flex', alignItems: 'center', gap: '15px', background: theme.bg, padding: '15px', borderRadius: '12px', border: `1px solid ${captchaVerified ? theme.success : theme.border}`, cursor: 'pointer', transition: 'border-color 0.3s' },
+    checkCircle: { width: '24px', height: '24px', borderRadius: '4px', border: `2px solid ${captchaVerified ? theme.success : theme.muted}`, background: captchaVerified ? theme.success : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'background 0.3s' },
+    toggle: { display: 'flex', alignItems: 'center', gap: '10px' },
+    select: { width: '100%', background: theme.bg, border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '12px', color: theme.text, fontSize: '14px', outline: 'none', appearance: 'none' }
   };
 
   // --- [RENDER: AUTH VIEWS] ---
@@ -312,6 +368,9 @@ export default function BXCore() {
             @keyframes fadeIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
             @keyframes pulse { 0%{opacity:0.5} 50%{opacity:1} 100%{opacity:0.5} }
             @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+            input:focus { border-color: ${theme.primary}; }
+            button:hover { transform: scale(1.02); }
+            .card:hover { transform: translateY(-5px); }
           `}</style>
         </div>
       </GoogleOAuthProvider>
@@ -326,11 +385,13 @@ export default function BXCore() {
         <div onClick={() => setActiveTab('create')} style={styles.navItem(activeTab === 'create')}><span>+</span> CREATE LINK</div>
         <div onClick={() => setActiveTab('manage')} style={styles.navItem(activeTab === 'manage')}><span>=</span> MY VAULT</div>
         <div onClick={() => setActiveTab('shortcut')} style={styles.navItem(activeTab === 'shortcut')}><span>✂</span> SHORT CUT</div>
+        <div onClick={() => setActiveTab('analytics')} style={styles.navItem(activeTab === 'analytics')}><span>📊</span> ANALYTICS</div>
         <div onClick={() => setActiveTab('settings')} style={styles.navItem(activeTab === 'settings')}><span>⚙</span> SETTINGS</div>
+        <div onClick={() => setActiveTab('help')} style={styles.navItem(activeTab === 'help')}><span>?</span> HELP</div>
 
         <div style={{marginTop: 'auto', paddingTop: '20px', borderTop: `1px solid ${theme.border}`}}>
           <div style={{fontSize:'10px', color:theme.muted, marginBottom:'5px'}}>OPERATOR ID</div>
-          <div style={{fontSize:'12px', color:'#fff', fontWeight:'bold', overflow:'hidden', textOverflow:'ellipsis'}}>{currentUser?.email}</div>
+          <div style={{fontSize:'12px', color:theme.text, fontWeight:'bold', overflow:'hidden', textOverflow:'ellipsis'}}>{currentUser?.email}</div>
           <button onClick={handleLogout} style={{background:'none', border:'none', color:theme.error, fontSize:'11px', fontWeight:'bold', marginTop:'15px', cursor:'pointer'}}>TERMINATE SESSION</button>
         </div>
       </div>
@@ -344,11 +405,19 @@ export default function BXCore() {
                 <div><span style={styles.label}>ASSET TITLE</span><input style={styles.input} placeholder="e.g. Premium Pack" value={title} onChange={e => setTitle(e.target.value)} /></div>
                 <div><span style={styles.label}>DESTINATION URL</span><input style={styles.input} placeholder="https://..." value={targetUrl} onChange={e => setTargetUrl(e.target.value)} /></div>
               </div>
+              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px'}}>
+                <div><span style={styles.label}>EXPIRATION DATE</span><input style={styles.input} type="date" value={expirationDate} onChange={e => setExpirationDate(e.target.value)} /></div>
+                <div style={styles.toggle}>
+                  <input type="checkbox" checked={passwordProtect} onChange={() => setPasswordProtect(!passwordProtect)} />
+                  <span style={styles.label}>PASSWORD PROTECT</span>
+                </div>
+              </div>
+              {passwordProtect && <input style={styles.input} type="password" placeholder="Set Protection Password" value={protectPassword} onChange={e => setProtectPassword(e.target.value)} />}
               <div style={{background: theme.bg, padding: '20px', borderRadius: '12px', border: `1px solid ${theme.border}`}}>
                  <div style={{display:'flex', justifyContent:'space-between', marginBottom:'15px'}}>
                    <span style={styles.label}>SECURITY LAYERS</span>
-                   <select value={layerCount} onChange={e => setLayerCount(Number(e.target.value))} style={{background:theme.card, color:'#fff', border:'none', padding:'5px', borderRadius:'5px'}}>
-                     <option value={1}>1 Layer (30s)</option><option value={2}>2 Layers (60s)</option><option value={3}>3 Layers (90s)</option>
+                   <select value={layerCount} onChange={e => setLayerCount(Number(e.target.value))} style={styles.select}>
+                     <option value={1}>1 Layer (30s)</option><option value={2}>2 Layers (60s)</option><option value={3}>3 Layers (90s)</option><option value={4}>4 Layers (120s)</option><option value={5}>5 Layers (150s)</option>
                    </select>
                  </div>
                  {Array.from({length: layerCount}).map((_, i) => (
@@ -368,9 +437,10 @@ export default function BXCore() {
             <h1 style={styles.panelTitle}>Active Vault</h1>
             {vault.length === 0 ? <div style={{textAlign: 'center', color: theme.muted, marginTop: '100px'}}>NO ACTIVE NODES</div> : vault.map((node) => (
               <div key={node.id} style={{...styles.card, display: 'flex', alignItems: 'center', gap: '20px'}}>
-                <div style={{flex: 1}}><div style={{fontWeight: 'bold', color: '#fff'}}>{node.title}</div><div style={{fontSize: '12px', color: theme.primary}}>{node.layers} Layers • {node.created}</div></div>
+                <div style={{flex: 1}}><div style={{fontWeight: 'bold', color: theme.text}}>{node.title}</div><div style={{fontSize: '12px', color: theme.primary}}>{node.layers} Layers • {node.created} {node.expiration ? `• Expires: ${node.expiration}` : ''}</div></div>
                 <div style={{display:'flex', gap:'10px'}}>
-                  <button onClick={() => {navigator.clipboard.writeText(node.url); triggerNotify("LINK COPIED", "success")}} style={{background:theme.cardLight, border:'none', color:'#fff', padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}}>COPY</button>
+                  <button onClick={() => {navigator.clipboard.writeText(node.url); triggerNotify("LINK COPIED", "success")}} style={{background:theme.cardLight, border:'none', color:theme.text, padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}}>COPY</button>
+                  <button onClick={() => editLink(node.id)} style={{background:`${theme.warning}20`, border:'none', color:theme.warning, padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}}>EDIT</button>
                   <button onClick={() => deleteLink(node.id)} style={{background:`${theme.error}20`, border:'none', color:theme.error, padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}}>DELETE</button>
                 </div>
               </div>
@@ -384,6 +454,8 @@ export default function BXCore() {
             <div style={styles.card}>
               <span style={styles.label}>PASTE LONG LINK</span>
               <input style={styles.input} placeholder="https://..." value={linkToShorten} onChange={e => setLinkToShorten(e.target.value)} />
+              <span style={styles.label}>CUSTOM ALIAS (OPTIONAL)</span>
+              <input style={styles.input} placeholder="e.g. mylink" value={customAlias} onChange={e => setCustomAlias(e.target.value)} />
               <button style={styles.btn(true)} onClick={shortenLink} disabled={shorteningLoading}>{shorteningLoading ? 'SHORTENING...' : 'SHORTEN LINK'}</button>
               {shortenedLink && (
                 <div style={{marginTop: '20px'}}>
@@ -392,6 +464,16 @@ export default function BXCore() {
                   <button style={styles.btn(false)} onClick={() => {navigator.clipboard.writeText(shortenedLink); triggerNotify("COPIED", "success")}}>COPY SHORT LINK</button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'analytics' && (
+          <div className="fade-in" style={{maxWidth: '800px'}}>
+            <h1 style={styles.panelTitle}>Node Analytics</h1>
+            <div style={styles.card}>
+              <p style={{color: theme.muted}}>Analytics data coming soon. Track clicks, views, and more.</p>
+              {/* Placeholder for charts or data */}
             </div>
           </div>
         )}
@@ -406,7 +488,23 @@ export default function BXCore() {
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
                 <div><div style={{fontWeight:'bold'}}>Ad Intensity</div><div style={{fontSize:'12px', color:theme.muted}}>Balanced loading</div></div>
-                <select style={{background:theme.bg, color:'#fff', border:`1px solid ${theme.border}`}} value={settings.adIntensity} onChange={e => setSettings({...settings, adIntensity: e.target.value})}><option>Low</option><option>Balanced</option><option>High</option></select>
+                <select style={{background:theme.bg, color:theme.text, border:`1px solid ${theme.border}`}} value={settings.adIntensity} onChange={e => setSettings({...settings, adIntensity: e.target.value})}><option>Low</option><option>Balanced</option><option>High</option><option>Max</option></select>
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Dark Theme</div><div style={{fontSize:'12px', color:theme.muted}}>Enable dark mode</div></div>
+                <input type="checkbox" checked={settings.darkTheme} onChange={() => setSettings({...settings, darkTheme: !settings.darkTheme})} />
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Auto Save</div><div style={{fontSize:'12px', color:theme.muted}}>Save changes automatically</div></div>
+                <input type="checkbox" checked={settings.autoSave} onChange={() => setSettings({...settings, autoSave: !settings.autoSave})} />
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Two-Factor Auth</div><div style={{fontSize:'12px', color:theme.muted}}>Extra security layer</div></div>
+                <input type="checkbox" checked={settings.twoFactor} onChange={() => setSettings({...settings, twoFactor: !settings.twoFactor})} />
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Email Alerts</div><div style={{fontSize:'12px', color:theme.muted}}>Receive notifications via email</div></div>
+                <input type="checkbox" checked={settings.emailAlerts} onChange={() => setSettings({...settings, emailAlerts: !settings.emailAlerts})} />
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                 <div><div style={{fontWeight:'bold', color: theme.error}}>Maintenance Mode</div><div style={{fontSize:'12px', color:theme.muted}}>Disable links</div></div>
@@ -416,8 +514,23 @@ export default function BXCore() {
             <div style={{textAlign:'center', fontSize:'10px', color:theme.muted}}>BX-CORE BUILD 25.0.0 | SECURE CONNECTION</div>
           </div>
         )}
+
+        {activeTab === 'help' && (
+          <div className="fade-in" style={{maxWidth: '800px'}}>
+            <h1 style={styles.panelTitle}>Help & Support</h1>
+            <div style={styles.card}>
+              <p style={{marginBottom: '20px'}}>Welcome to BX Core Dashboard. Here you can create secure links, manage your vault, shorten URLs, and configure settings.</p>
+              <ul style={{listStyle: 'disc', paddingLeft: '20px', color: theme.muted}}>
+                <li>Create: Deploy new secure nodes with layers.</li>
+                <li>Vault: Manage existing links.</li>
+                <li>Shortcut: Shorten any link.</li>
+                <li>Settings: Customize your experience.</li>
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
-      {notify.show && <div style={{position:'fixed', bottom:'30px', right:'30px', background: notify.type === 'error' ? theme.error : theme.primary, color:'#fff', padding:'15px 30px', borderRadius:'12px', fontWeight:'bold', zIndex:1000}}>{notify.msg}</div>}
+      {notify.show && <div style={{position:'fixed', bottom:'30px', right:'30px', background: notify.type === 'error' ? theme.error : theme.primary, color:'#fff', padding:'15px 30px', borderRadius:'12px', fontWeight:'bold', zIndex:1000, boxShadow: '0 5px 15px rgba(0,0,0,0.3)', animation: 'slideUp 0.3s'}}>{notify.msg}</div>}
     </div>
   );
 }
