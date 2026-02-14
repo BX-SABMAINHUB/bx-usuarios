@@ -56,6 +56,7 @@ export default function BXUnlocker() {
       try {
         const decoded = JSON.parse(atob(rawData));
         setNodeData(decoded);
+        setTimer(decoded.timePerLayer || 30);
         setTimeout(() => setView('welcome'), 2000);
       } catch (e) {
         setView('error');
@@ -80,7 +81,7 @@ export default function BXUnlocker() {
     if (view === 'unlocking' && stepActivated && isLocked && timer > 0) {
       interval = setInterval(() => {
         setTimer(t => t - 1);
-        setProgress(((30 - (timer - 1)) / 30) * 100);
+        setProgress(((nodeData.timePerLayer - (timer - 1)) / nodeData.timePerLayer) * 100);
       }, 1000);
     } else if (timer === 0 && isLocked) {
       setIsLocked(false);
@@ -89,7 +90,7 @@ export default function BXUnlocker() {
       clearInterval(interval);
     }
     return () => clearInterval(interval);
-  }, [view, stepActivated, isLocked, timer]);
+  }, [view, stepActivated, isLocked, timer, nodeData]);
 
   // --- [CORE ACTIONS] ---
   const addLog = (msg) => {
@@ -131,7 +132,7 @@ export default function BXUnlocker() {
 
     if (currentStep + 1 < nodeData.layers) {
       setCurrentStep(s => s + 1);
-      setTimer(30);
+      setTimer(nodeData.timePerLayer || 30);
       setProgress(0);
       setIsLocked(true);
       setStepActivated(false); // Reset activation for the next step
