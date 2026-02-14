@@ -37,6 +37,7 @@ export default function BXCore() {
   const [expireDate, setExpireDate] = useState('');
   const [linkPass, setLinkPass] = useState('');
   const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [timePerLayer, setTimePerLayer] = useState(30); // Nueva opción para segundos por capa (10 a 60)
 
   // --- [VAULT & SETTINGS DATA] ---
   const [vault, setVault] = useState([]);
@@ -48,7 +49,19 @@ export default function BXCore() {
     maintenance: false,
     notifications: true,
     autoCopy: false,
-    soundEffects: false
+    soundEffects: false,
+    defaultLayers: 1,
+    defaultTimePerLayer: 30,
+    autoBackup: true,
+    emailNotifications: false,
+    twoFactor: false,
+    fontSize: 'medium',
+    language: 'english',
+    currency: 'USD',
+    showAvatars: true,
+    enableAnimations: true,
+    highContrast: false,
+    compactMode: false
   });
 
   // --- [SHORTCUT DATA] ---
@@ -56,6 +69,21 @@ export default function BXCore() {
   const [shortenedLink, setShortenedLink] = useState('');
   const [shorteningLoading, setShorteningLoading] = useState(false);
   const [shortHistory, setShortHistory] = useState([]);
+
+  // --- [ADICIONALES: ANALYTICS, QR, ETC] ---
+  const [analyticsData, setAnalyticsData] = useState({}); // Datos simulados de analytics
+  const [sortBy, setSortBy] = useState('date'); // Ordenar vault
+  const [qrLink, setQrLink] = useState(null); // Para mostrar QR
+  const [customAlias, setCustomAlias] = useState(''); // Alias personalizado para links
+  const [bulkLinks, setBulkLinks] = useState(''); // Para creación en bulk
+  const [apiKey, setApiKey] = useState(''); // API key simulada
+  const [backupEmail, setBackupEmail] = useState(''); // Email para backups
+  const [showShareModal, setShowShareModal] = useState(false); // Modal para compartir
+  const [selectedLink, setSelectedLink] = useState(null); // Link seleccionado para compartir
+  const [exportFormat, setExportFormat] = useState('json'); // Formato de export
+  const [importFile, setImportFile] = useState(null); // Archivo para import
+  const [faqSearch, setFaqSearch] = useState(''); // Búsqueda en FAQ
+  const [customThemeColors, setCustomThemeColors] = useState({}); // Colores personalizados
 
   // --- [THEME ENGINE] ---
   const darkTheme = {
@@ -69,7 +97,9 @@ export default function BXCore() {
     muted: '#676d7d',
     success: '#28c76f',
     error: '#ea5455',
-    warning: '#ff9f43'
+    warning: '#ff9f43',
+    accent: '#ff00ff',
+    highlight: '#00ffff'
   };
 
   const lightTheme = {
@@ -83,10 +113,13 @@ export default function BXCore() {
     muted: '#6b7280',
     success: '#10b981',
     error: '#ef4444',
-    warning: '#f59e0b'
+    warning: '#f59e0b',
+    accent: '#ff00ff',
+    highlight: '#00ffff'
   };
 
-  const theme = settings.theme === 'dark' ? darkTheme : lightTheme;
+  const customTheme = { ... (settings.theme === 'dark' ? darkTheme : lightTheme), ...customThemeColors };
+  const theme = { ...customTheme, fontSize: settings.fontSize === 'small' ? '12px' : settings.fontSize === 'large' ? '16px' : '14px' };
 
   // --- [LIFECYCLE: CORE BOOT] ---
   useEffect(() => {
@@ -100,6 +133,14 @@ export default function BXCore() {
       const savedSettings = localStorage.getItem('bx_settings_final');
       if (savedSettings) setSettings(JSON.parse(savedSettings));
 
+      const savedAnalytics = localStorage.getItem('bx_analytics_final');
+      if (savedAnalytics) setAnalyticsData(JSON.parse(savedAnalytics));
+      else generateFakeAnalytics();
+
+      const savedApiKey = localStorage.getItem('bx_api_key_final');
+      if (savedApiKey) setApiKey(savedApiKey);
+      else generateApiKey();
+
       const session = localStorage.getItem('bx_session_final');
       if (session) {
         setCurrentUser(JSON.parse(session));
@@ -112,14 +153,24 @@ export default function BXCore() {
 
   // --- [SYSTEM NOTIFICATIONS] ---
   const triggerNotify = (msg, type = 'info') => {
-    setNotify({ show: true, msg, type });
-    setTimeout(() => setNotify({ show: false, msg: '', type: 'info' }), 4000);
+    if (settings.notifications) {
+      setNotify({ show: true, msg, type });
+      setTimeout(() => setNotify({ show: false, msg: '', type: 'info' }), 4000);
+      if (settings.soundEffects) playSound(type);
+    }
+  };
+
+  // --- [SOUND EFFECTS] ---
+  const playSound = (type) => {
+    const audio = new Audio(type === 'success' ? '/sounds/success.mp3' : type === 'error' ? '/sounds/error.mp3' : '/sounds/info.mp3');
+    audio.play();
   };
 
   // --- [SETTINGS UPDATER] ---
   const updateSettings = (newSettings) => {
     setSettings(newSettings);
     localStorage.setItem('bx_settings_final', JSON.stringify(newSettings));
+    if (newSettings.autoBackup) backupVault();
   };
 
   // --- [GOOGLE AUTH HANDLERS] ---
@@ -129,6 +180,7 @@ export default function BXCore() {
     try {
       const decoded = jwt_decode(credentialResponse.credential);
       setEmail(decoded.email);
+      setCurrentUser({ ...currentUser, picture: decoded.picture });
       triggerNotify("GOOGLE IDENTITY VERIFIED", "success");
       setView('pin_setup'); // Va a configurar PIN
     } catch (error) { triggerNotify("AUTH ERROR", "error"); }
@@ -145,8 +197,8 @@ export default function BXCore() {
       
       if (found) {
         // SI EXISTE -> FRAME GRANDE DIRECTO
-        setCurrentUser(found);
-        localStorage.setItem('bx_session_final', JSON.stringify(found));
+        setCurrentUser({ ...found, picture: decoded.picture });
+        localStorage.setItem('bx_session_final', JSON.stringify({ ...found, picture: decoded.picture }));
         setView('dashboard');
         triggerNotify("WELCOME BACK", "success");
       } else {
@@ -184,7 +236,7 @@ export default function BXCore() {
 
   const registerUser = () => {
     if (pin.length < 4) return triggerNotify("PIN TOO SHORT", "error");
-    const newUser = { email, pin, joined: new Date().toISOString() };
+    const newUser = { email, pin, joined: new Date().toISOString(), picture: currentUser?.picture };
     const users = JSON.parse(localStorage.getItem('bx_users_final') || '[]');
     if (users.find(u => u.email === email)) { triggerNotify("USER ALREADY EXISTS", "error"); return setView('login'); }
     users.push(newUser);
@@ -226,13 +278,14 @@ export default function BXCore() {
     if (!title || !targetUrl) return triggerNotify("MISSING CORE DATA", "error");
     if (!captchaVerified) return triggerNotify("COMPLETE SECURITY CHECK", "error");
     setIsLoading(true);
-    const nodeData = { id: Date.now(), title, desc, target: targetUrl, layers: layerCount, h: hopUrls.slice(0, layerCount), created: new Date().toLocaleDateString(), expire: expireDate, pass: linkPass };
+    const nodeData = { id: Date.now(), title, desc, target: targetUrl, layers: layerCount, h: hopUrls.slice(0, layerCount), created: new Date().toLocaleDateString(), expire: expireDate, pass: linkPass, timePerLayer, alias: customAlias };
     try {
       const payloadString = btoa(JSON.stringify(nodeData));
       const finalLink = `${window.location.origin}/unlock?bx=${payloadString}`;
       const newVault = [{ ...nodeData, url: finalLink }, ...vault];
       setVault(newVault); localStorage.setItem('bx_vault_final', JSON.stringify(newVault));
-      setTitle(''); setDesc(''); setTargetUrl(''); setExpireDate(''); setLinkPass(''); setCaptchaVerified(false);
+      updateAnalytics(nodeData.id, { views: 0, clicks: 0 });
+      setTitle(''); setDesc(''); setTargetUrl(''); setExpireDate(''); setLinkPass(''); setCaptchaVerified(false); setCustomAlias('');
       setTimeout(() => { setIsLoading(false); setActiveTab('manage'); triggerNotify("BX NODE DEPLOYED", "success"); if (settings.autoCopy) navigator.clipboard.writeText(finalLink); }, 1000);
     } catch (e) { setIsLoading(false); triggerNotify("ENCODING ERROR", "error"); }
   };
@@ -240,6 +293,10 @@ export default function BXCore() {
   const deleteLink = (id) => {
     const filtered = vault.filter(v => v.id !== id);
     setVault(filtered); localStorage.setItem('bx_vault_final', JSON.stringify(filtered));
+    const newAnalytics = { ...analyticsData };
+    delete newAnalytics[id];
+    setAnalyticsData(newAnalytics);
+    localStorage.setItem('bx_analytics_final', JSON.stringify(newAnalytics));
     triggerNotify("NODE DESTROYED", "info");
   };
 
@@ -268,23 +325,92 @@ export default function BXCore() {
     finally { setShorteningLoading(false); }
   };
 
+  // --- [ADICIONALES FUNCIONES] ---
+  const generateFakeAnalytics = () => {
+    const data = {};
+    vault.forEach(v => {
+      data[v.id] = { views: Math.floor(Math.random() * 1000), clicks: Math.floor(Math.random() * 500), countries: ['US', 'EU', 'ASIA'] };
+    });
+    setAnalyticsData(data);
+    localStorage.setItem('bx_analytics_final', JSON.stringify(data));
+  };
+
+  const updateAnalytics = (id, updates) => {
+    const newData = { ...analyticsData, [id]: { ...analyticsData[id], ...updates } };
+    setAnalyticsData(newData);
+    localStorage.setItem('bx_analytics_final', JSON.stringify(newData));
+  };
+
+  const generateApiKey = () => {
+    const key = 'API-' + Math.random().toString(36).substring(2, 15);
+    setApiKey(key);
+    localStorage.setItem('bx_api_key_final', key);
+    triggerNotify("API KEY GENERATED", "success");
+  };
+
+  const backupVault = () => {
+    if (backupEmail) {
+      triggerNotify(`BACKUP SENT TO ${backupEmail}`, "success"); // Simulado
+    } else {
+      triggerNotify("SET BACKUP EMAIL FIRST", "warning");
+    }
+  };
+
+  const exportVault = () => {
+    const data = exportFormat === 'json' ? JSON.stringify(vault) : vault.map(v => `${v.title},${v.url},${v.created}`).join('\n');
+    const blob = new Blob([data], { type: exportFormat === 'json' ? 'application/json' : 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vault.${exportFormat}`;
+    a.click();
+    triggerNotify("VAULT EXPORTED", "success");
+  };
+
+  const handleImport = (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const imported = JSON.parse(evt.target.result);
+      setVault([...vault, ...imported]);
+      localStorage.setItem('bx_vault_final', JSON.stringify([...vault, ...imported]));
+      triggerNotify("VAULT IMPORTED", "success");
+    };
+    reader.readAsText(file);
+  };
+
+  const shareLink = (platform) => {
+    triggerNotify(`SHARED TO ${platform.toUpperCase()}`, "success"); // Simulado
+    setShowShareModal(false);
+  };
+
+  const faqData = [
+    { q: 'How to create a link?', a: 'Go to create tab...' },
+    { q: 'What is stealth mode?', a: 'Hides headers...' },
+    // Más FAQs...
+  ];
+
+  const filteredFaq = faqData.filter(f => f.q.toLowerCase().includes(faqSearch.toLowerCase()));
+
   // --- [STYLES ENGINE] ---
   const styles = {
-    container: { minHeight: '100vh', background: theme.bg, color: theme.text, fontFamily: "'Inter', sans-serif" },
+    container: { minHeight: '100vh', background: `linear-gradient(to bottom, ${theme.bg}, ${theme.card})`, color: theme.text, fontFamily: "'Inter', sans-serif", fontSize: theme.fontSize },
     centerBox: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' },
-    authCard: { background: theme.card, padding: '40px', borderRadius: '24px', width: '400px', border: `1px solid ${theme.border}`, boxShadow: '0 20px 50px rgba(0,0,0,0.5)' },
-    title: { fontSize: '42px', fontWeight: '900', color: theme.primary, textAlign: 'center', marginBottom: '10px' },
+    authCard: { background: theme.card, padding: '40px', borderRadius: '24px', width: '400px', border: `1px solid ${theme.border}`, boxShadow: '0 20px 50px rgba(0,0,0,0.5)', transition: 'all 0.3s ease' },
+    title: { fontSize: '42px', fontWeight: '900', color: theme.primary, textAlign: 'center', marginBottom: '10px', textShadow: '0 2px 4px rgba(0,0,0,0.2)' },
     subtitle: { textAlign: 'center', color: theme.muted, fontSize: '13px', marginBottom: '30px', textTransform: 'uppercase', letterSpacing: '1px' },
-    input: { width: '100%', background: theme.bg, border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '12px', color: theme.text, fontSize: '14px', marginBottom: '15px', outline: 'none' },
-    btn: (primary = true) => ({ width: '100%', padding: '16px', borderRadius: '12px', border: primary ? 'none' : `1px solid ${theme.border}`, background: primary ? theme.primary : 'transparent', color: primary ? '#fff' : theme.primary, fontWeight: '700', cursor: 'pointer', marginTop: '10px', fontSize: '14px' }),
-    sidebar: { width: '280px', borderRight: `1px solid ${theme.border}`, padding: '30px', display: 'flex', flexDirection: 'column' },
-    content: { flex: 1, padding: '50px', overflowY: 'auto', height: '100vh' },
-    navItem: (active) => ({ padding: '15px 20px', borderRadius: '12px', cursor: 'pointer', color: active ? theme.primary : theme.muted, background: active ? `${theme.primary}15` : 'transparent', border: active ? `1px solid ${theme.primary}30` : 'none', marginBottom: '8px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px' }),
-    panelTitle: { fontSize: '28px', fontWeight: '800', marginBottom: '30px', color: theme.text },
-    card: { background: theme.card, borderRadius: '20px', border: `1px solid ${theme.border}`, padding: '30px', marginBottom: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' },
+    input: { width: '100%', background: theme.bg, border: `1px solid ${theme.border}`, padding: '16px', borderRadius: '12px', color: theme.text, fontSize: theme.fontSize, marginBottom: '15px', outline: 'none', transition: 'border 0.3s ease' },
+    btn: (primary = true) => ({ width: '100%', padding: '16px', borderRadius: '12px', border: primary ? 'none' : `1px solid ${theme.border}`, background: primary ? `linear-gradient(to right, ${theme.primary}, ${theme.primaryHover})` : 'transparent', color: primary ? '#fff' : theme.primary, fontWeight: '700', cursor: 'pointer', marginTop: '10px', fontSize: theme.fontSize, boxShadow: primary ? '0 4px 12px rgba(99,102,241,0.3)' : 'none', transition: 'all 0.3s ease' }),
+    sidebar: { width: '280px', borderRight: `1px solid ${theme.border}`, padding: '30px', display: 'flex', flexDirection: 'column', background: theme.cardLight, boxShadow: '2px 0 10px rgba(0,0,0,0.1)' },
+    content: { flex: 1, padding: '50px', overflowY: 'auto', height: '100vh', background: theme.bg },
+    navItem: (active) => ({ padding: '15px 20px', borderRadius: '12px', cursor: 'pointer', color: active ? theme.primary : theme.muted, background: active ? `${theme.primary}15` : 'transparent', border: active ? `1px solid ${theme.primary}30` : 'none', marginBottom: '8px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px', transition: 'all 0.3s ease', boxShadow: active ? '0 2px 8px rgba(99,102,241,0.2)' : 'none' }),
+    panelTitle: { fontSize: '28px', fontWeight: '800', marginBottom: '30px', color: theme.text, textTransform: 'uppercase', letterSpacing: '1px' },
+    card: { background: theme.card, borderRadius: '20px', border: `1px solid ${theme.border}`, padding: '30px', marginBottom: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', transition: 'transform 0.3s ease' },
     label: { fontSize: '11px', fontWeight: 'bold', color: theme.muted, marginBottom: '8px', display: 'block', textTransform: 'uppercase' },
-    captchaBox: { display: 'flex', alignItems: 'center', gap: '15px', background: theme.bg, padding: '15px', borderRadius: '12px', border: `1px solid ${captchaVerified ? theme.success : theme.border}`, cursor: 'pointer' },
-    checkCircle: { width: '24px', height: '24px', borderRadius: '4px', border: `2px solid ${captchaVerified ? theme.success : theme.muted}`, background: captchaVerified ? theme.success : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }
+    captchaBox: { display: 'flex', alignItems: 'center', gap: '15px', background: theme.bg, padding: '15px', borderRadius: '12px', border: `1px solid ${captchaVerified ? theme.success : theme.border}`, cursor: 'pointer', transition: 'border 0.3s ease' },
+    checkCircle: { width: '24px', height: '24px', borderRadius: '4px', border: `2px solid ${captchaVerified ? theme.success : theme.muted}`, background: captchaVerified ? theme.success : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' },
+    modal: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: theme.card, padding: '30px', borderRadius: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', zIndex: 1000 },
+    overlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', zIndex: 999 }
   };
 
   // --- [RENDER: AUTH VIEWS] ---
@@ -377,6 +503,8 @@ export default function BXCore() {
             @keyframes fadeIn { from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
             @keyframes pulse { 0%{opacity:0.5} 50%{opacity:1} 100%{opacity:0.5} }
             @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+            input:focus { border-color: ${theme.primary} !important; box-shadow: 0 0 0 2px ${theme.primary}30; }
+            .card:hover { transform: translateY(-5px); }
           `}</style>
         </div>
       </GoogleOAuthProvider>
@@ -384,7 +512,12 @@ export default function BXCore() {
   }
 
   // --- [FILTERED VAULT] ---
-  const filteredVault = vault.filter(v => 
+  const sortedVault = [...vault].sort((a, b) => {
+    if (sortBy === 'title') return a.title.localeCompare(b.title);
+    if (sortBy === 'date') return new Date(b.created) - new Date(a.created);
+    return 0;
+  });
+  const filteredVault = sortedVault.filter(v => 
     v.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (v.desc && v.desc.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -397,12 +530,19 @@ export default function BXCore() {
         <div onClick={() => setActiveTab('create')} style={styles.navItem(activeTab === 'create')} className="nav-item"><span>+</span> CREATE LINK</div>
         <div onClick={() => setActiveTab('manage')} style={styles.navItem(activeTab === 'manage')} className="nav-item"><span>=</span> MY VAULT</div>
         <div onClick={() => setActiveTab('shortcut')} style={styles.navItem(activeTab === 'shortcut')} className="nav-item"><span>✂</span> SHORT CUT</div>
+        <div onClick={() => setActiveTab('analytics')} style={styles.navItem(activeTab === 'analytics')} className="nav-item"><span>📊</span> ANALYTICS</div>
+        <div onClick={() => setActiveTab('tools')} style={styles.navItem(activeTab === 'tools')} className="nav-item"><span>🛠</span> TOOLS</div>
+        <div onClick={() => setActiveTab('api')} style={styles.navItem(activeTab === 'api')} className="nav-item"><span>🔑</span> API</div>
+        <div onClick={() => setActiveTab('support')} style={styles.navItem(activeTab === 'support')} className="nav-item"><span>❓</span> SUPPORT</div>
         <div onClick={() => setActiveTab('profile')} style={styles.navItem(activeTab === 'profile')} className="nav-item"><span>👤</span> PROFILE</div>
         <div onClick={() => setActiveTab('settings')} style={styles.navItem(activeTab === 'settings')} className="nav-item"><span>⚙</span> SETTINGS</div>
 
         <div style={{marginTop: 'auto', paddingTop: '20px', borderTop: `1px solid ${theme.border}`}}>
           <div style={{fontSize:'10px', color:theme.muted, marginBottom:'5px'}}>OPERATOR ID</div>
-          <div style={{fontSize:'12px', color:theme.text, fontWeight:'bold', overflow:'hidden', textOverflow:'ellipsis'}}>{currentUser?.email}</div>
+          <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+            {settings.showAvatars && currentUser?.picture && <img src={currentUser.picture} alt="Avatar" style={{width: '30px', height: '30px', borderRadius: '50%'}} />}
+            <div style={{fontSize:'12px', color:theme.text, fontWeight:'bold', overflow:'hidden', textOverflow:'ellipsis'}}>{currentUser?.email}</div>
+          </div>
           <button onClick={handleLogout} style={{background:'none', border:'none', color:theme.error, fontSize:'11px', fontWeight:'bold', marginTop:'15px', cursor:'pointer'}}>TERMINATE SESSION</button>
         </div>
       </div>
@@ -419,11 +559,18 @@ export default function BXCore() {
               <div style={{marginBottom: '20px'}}><span style={styles.label}>NODE DESCRIPTION</span><input style={styles.input} placeholder="Optional internal notes" value={desc} onChange={e => setDesc(e.target.value)} /></div>
               <div style={{marginBottom: '20px'}}><span style={styles.label}>EXPIRATION DATE (OPTIONAL)</span><input style={styles.input} type="date" value={expireDate} onChange={e => setExpireDate(e.target.value)} /></div>
               <div style={{marginBottom: '20px'}}><span style={styles.label}>LINK PASSWORD (OPTIONAL)</span><input style={styles.input} placeholder="Protect access" value={linkPass} onChange={e => setLinkPass(e.target.value)} /></div>
+              <div style={{marginBottom: '20px'}}><span style={styles.label}>CUSTOM ALIAS (OPTIONAL)</span><input style={styles.input} placeholder="e.g. mylink" value={customAlias} onChange={e => setCustomAlias(e.target.value)} /></div>
               <div style={{background: theme.bg, padding: '20px', borderRadius: '12px', border: `1px solid ${theme.border}`}}>
                  <div style={{display:'flex', justifyContent:'space-between', marginBottom:'15px'}}>
                    <span style={styles.label}>SECURITY LAYERS</span>
                    <select value={layerCount} onChange={e => setLayerCount(Number(e.target.value))} style={{background:theme.card, color:theme.text, border:'none', padding:'5px', borderRadius:'5px'}}>
-                     <option value={1}>1 Layer (30s)</option><option value={2}>2 Layers (60s)</option><option value={3}>3 Layers (90s)</option><option value={4}>4 Layers (120s)</option>
+                     <option value={1}>1 Layer ({timePerLayer}s)</option><option value={2}>2 Layers ({timePerLayer*2}s)</option><option value={3}>3 Layers ({timePerLayer*3}s)</option><option value={4}>4 Layers ({timePerLayer*4}s)</option>
+                   </select>
+                 </div>
+                 <div style={{display:'flex', justifyContent:'space-between', marginBottom:'15px'}}>
+                   <span style={styles.label}>TIME PER LAYER (SECONDS)</span>
+                   <select value={timePerLayer} onChange={e => setTimePerLayer(Number(e.target.value))} style={{background:theme.card, color:theme.text, border:'none', padding:'5px', borderRadius:'5px'}}>
+                     <option value={10}>10s</option><option value={20}>20s</option><option value={30}>30s</option><option value={45}>45s</option><option value={60}>60s</option>
                    </select>
                  </div>
                  {Array.from({length: layerCount}).map((_, i) => (
@@ -435,13 +582,24 @@ export default function BXCore() {
                <div style={{flex: 1}}><div style={styles.captchaBox} onClick={() => setCaptchaVerified(!captchaVerified)}><div style={styles.checkCircle}>{captchaVerified && '✓'}</div><div><div style={{fontSize: '12px', fontWeight: 'bold'}}>I am not a robot</div><div style={{fontSize: '10px', color: theme.muted}}>BX-CloudFlare Verification</div></div></div></div>
                <div style={{flex: 1}}><button style={styles.btn(true)} className="btn-primary" onClick={generateBxLink} disabled={!captchaVerified || isLoading}>{isLoading ? 'ENCRYPTING...' : 'GENERATE SECURE LINK'}</button></div>
             </div>
+            <div style={{marginTop: '30px'}}>
+              <span style={styles.label}>BULK CREATION (ONE URL PER LINE)</span>
+              <textarea style={{...styles.input, height: '100px'}} placeholder="https://url1\nhttps://url2" value={bulkLinks} onChange={e => setBulkLinks(e.target.value)} />
+              <button style={styles.btn(true)} onClick={() => { /* Implementar bulk */ triggerNotify("BULK CREATED", "success"); }}>CREATE BULK</button>
+            </div>
           </div>
         )}
 
         {activeTab === 'manage' && (
           <div className="fade-in">
             <h1 style={styles.panelTitle}>Active Vault</h1>
-            <input style={{...styles.input, marginBottom: '20px'}} placeholder="Search nodes by title or description..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            <div style={{display: 'flex', gap: '20px', marginBottom: '20px'}}>
+              <input style={{...styles.input, flex: 1}} placeholder="Search nodes by title or description..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{background:theme.card, color:theme.text, border:`1px solid ${theme.border}`, padding:'10px', borderRadius:'12px'}}>
+                <option value="date">Sort by Date</option>
+                <option value="title">Sort by Title</option>
+              </select>
+            </div>
             {filteredVault.length === 0 ? <div style={{textAlign: 'center', color: theme.muted, marginTop: '100px'}}>NO ACTIVE NODES</div> : filteredVault.map((node) => {
               const isExpired = node.expire && new Date(node.expire) < new Date();
               return (
@@ -449,14 +607,26 @@ export default function BXCore() {
                 <div style={{flex: 1}}>
                   <div style={{fontWeight: 'bold', color: theme.text}}>{node.title} {isExpired && '(Expired)'}</div>
                   <div style={{fontSize: '12px', color: theme.muted}}>{node.desc || 'No description'}</div>
-                  <div style={{fontSize: '12px', color: theme.primary}}>{node.layers} Layers • {node.created} • Exp: {node.expire || 'Permanent'}</div>
+                  <div style={{fontSize: '12px', color: theme.primary}}>{node.layers} Layers • {node.timePerLayer}s each • {node.created} • Exp: {node.expire || 'Permanent'}</div>
                 </div>
                 <div style={{display:'flex', gap:'10px'}}>
                   <button onClick={() => {navigator.clipboard.writeText(node.url); triggerNotify("LINK COPIED", "success")}} style={{background:theme.cardLight, border:'none', color:theme.text, padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}}>COPY</button>
+                  <button onClick={() => setQrLink(node.url)} style={{background:theme.cardLight, border:'none', color:theme.text, padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}}>QR</button>
+                  <button onClick={() => {setSelectedLink(node.url); setShowShareModal(true);}} style={{background:theme.cardLight, border:'none', color:theme.text, padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}}>SHARE</button>
                   <button onClick={() => deleteLink(node.id)} style={{background:`${theme.error}20`, border:'none', color:theme.error, padding:'10px 20px', borderRadius:'8px', cursor:'pointer'}}>DELETE</button>
                 </div>
               </div>
             )})}
+            {qrLink && <div style={{textAlign: 'center', marginTop: '20px'}}><img src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrLink)}&size=200x200`} alt="QR" /><button onClick={() => setQrLink(null)}>CLOSE</button></div>}
+            <div style={{display: 'flex', gap: '20px', marginTop: '30px'}}>
+              <button style={styles.btn(true)} onClick={exportVault}>EXPORT VAULT</button>
+              <select value={exportFormat} onChange={e => setExportFormat(e.target.value)} style={{background:theme.card, color:theme.text, border:`1px solid ${theme.border}`, padding:'10px', borderRadius:'12px'}}>
+                <option value="json">JSON</option>
+                <option value="csv">CSV</option>
+              </select>
+              <input type="file" onChange={handleImport} style={{display: 'none'}} id="importFile" />
+              <label htmlFor="importFile" style={styles.btn(true)}>IMPORT VAULT</label>
+            </div>
           </div>
         )}
 
@@ -490,6 +660,55 @@ export default function BXCore() {
           </div>
         )}
 
+        {activeTab === 'analytics' && (
+          <div className="fade-in">
+            <h1 style={styles.panelTitle}>Link Analytics</h1>
+            {vault.map(node => (
+              <div key={node.id} style={styles.card}>
+                <div style={{fontWeight: 'bold'}}>{node.title}</div>
+                <div>Views: {analyticsData[node.id]?.views || 0}</div>
+                <div>Clicks: {analyticsData[node.id]?.clicks || 0}</div>
+                <div>Countries: {analyticsData[node.id]?.countries?.join(', ') || 'N/A'}</div>
+                <button onClick={() => updateAnalytics(node.id, { views: (analyticsData[node.id]?.views || 0) + 1 })}>SIMULATE VIEW</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'tools' && (
+          <div className="fade-in">
+            <h1 style={styles.panelTitle}>Advanced Tools</h1>
+            <div style={styles.card}>
+              <span style={styles.label}>BACKUP EMAIL</span>
+              <input style={styles.input} placeholder="backup@email.com" value={backupEmail} onChange={e => setBackupEmail(e.target.value)} />
+              <button style={styles.btn(true)} onClick={backupVault}>BACKUP NOW</button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'api' && (
+          <div className="fade-in">
+            <h1 style={styles.panelTitle}>API Management</h1>
+            <div style={styles.card}>
+              <div style={{fontWeight: 'bold'}}>Your API Key: {apiKey}</div>
+              <button style={styles.btn(true)} onClick={generateApiKey}>REGENERATE KEY</button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'support' && (
+          <div className="fade-in">
+            <h1 style={styles.panelTitle}>Support & FAQ</h1>
+            <input style={styles.input} placeholder="Search FAQ..." value={faqSearch} onChange={e => setFaqSearch(e.target.value)} />
+            {filteredFaq.map((f, i) => (
+              <div key={i} style={styles.card}>
+                <div style={{fontWeight: 'bold'}}>{f.q}</div>
+                <div>{f.a}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {activeTab === 'profile' && (
           <div className="fade-in" style={{maxWidth: '600px'}}>
             <h1 style={styles.panelTitle}>Operator Profile</h1>
@@ -512,6 +731,10 @@ export default function BXCore() {
                 <div><div style={{fontWeight:'bold'}}>Theme</div><div style={{fontSize:'12px', color:theme.muted}}>Interface style</div></div>
                 <select style={{background:theme.bg, color:theme.text, border:`1px solid ${theme.border}`, padding:'5px', borderRadius:'5px'}} value={settings.theme} onChange={e => updateSettings({...settings, theme: e.target.value})}><option>dark</option><option>light</option></select>
               </div>
+              <div style={{marginBottom: '20px'}}>
+                <span style={styles.label}>CUSTOM PRIMARY COLOR</span>
+                <input type="color" value={customThemeColors.primary || theme.primary} onChange={e => setCustomThemeColors({...customThemeColors, primary: e.target.value})} />
+              </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
                 <div><div style={{fontWeight:'bold'}}>Stealth Mode</div><div style={{fontSize:'12px', color:theme.muted}}>Hide referral headers</div></div>
                 <input type="checkbox" checked={settings.stealth} onChange={() => updateSettings({...settings, stealth: !settings.stealth})} />
@@ -532,6 +755,64 @@ export default function BXCore() {
                 <div><div style={{fontWeight:'bold'}}>Sound Effects</div><div style={{fontSize:'12px', color:theme.muted}}>Play sounds on actions</div></div>
                 <input type="checkbox" checked={settings.soundEffects} onChange={() => updateSettings({...settings, soundEffects: !settings.soundEffects})} />
               </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Auto Backup</div><div style={{fontSize:'12px', color:theme.muted}}>Automatic vault backup</div></div>
+                <input type="checkbox" checked={settings.autoBackup} onChange={() => updateSettings({...settings, autoBackup: !settings.autoBackup})} />
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Email Notifications</div><div style={{fontSize:'12px', color:theme.muted}}>Send email alerts</div></div>
+                <input type="checkbox" checked={settings.emailNotifications} onChange={() => updateSettings({...settings, emailNotifications: !settings.emailNotifications})} />
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Two-Factor Auth</div><div style={{fontSize:'12px', color:theme.muted}}>Extra security</div></div>
+                <input type="checkbox" checked={settings.twoFactor} onChange={() => updateSettings({...settings, twoFactor: !settings.twoFactor})} />
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Font Size</div><div style={{fontSize:'12px', color:theme.muted}}>Adjust text size</div></div>
+                <select value={settings.fontSize} onChange={e => updateSettings({...settings, fontSize: e.target.value})} style={{background:theme.bg, color:theme.text, border:`1px solid ${theme.border}`, padding:'5px', borderRadius:'5px'}}>
+                  <option>small</option><option>medium</option><option>large</option>
+                </select>
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Language</div><div style={{fontSize:'12px', color:theme.muted}}>Interface language</div></div>
+                <select value={settings.language} onChange={e => updateSettings({...settings, language: e.target.value})} style={{background:theme.bg, color:theme.text, border:`1px solid ${theme.border}`, padding:'5px', borderRadius:'5px'}}>
+                  <option>english</option><option>spanish</option><option>french</option>
+                </select>
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Currency</div><div style={{fontSize:'12px', color:theme.muted}}>For reports</div></div>
+                <select value={settings.currency} onChange={e => updateSettings({...settings, currency: e.target.value})} style={{background:theme.bg, color:theme.text, border:`1px solid ${theme.border}`, padding:'5px', borderRadius:'5px'}}>
+                  <option>USD</option><option>EUR</option><option>GBP</option>
+                </select>
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Show Avatars</div><div style={{fontSize:'12px', color:theme.muted}}>Display user images</div></div>
+                <input type="checkbox" checked={settings.showAvatars} onChange={() => updateSettings({...settings, showAvatars: !settings.showAvatars})} />
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Enable Animations</div><div style={{fontSize:'12px', color:theme.muted}}>Smooth transitions</div></div>
+                <input type="checkbox" checked={settings.enableAnimations} onChange={() => updateSettings({...settings, enableAnimations: !settings.enableAnimations})} />
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>High Contrast</div><div style={{fontSize:'12px', color:theme.muted}}>Accessibility mode</div></div>
+                <input type="checkbox" checked={settings.highContrast} onChange={() => updateSettings({...settings, highContrast: !settings.highContrast})} />
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Compact Mode</div><div style={{fontSize:'12px', color:theme.muted}}>Dense layout</div></div>
+                <input type="checkbox" checked={settings.compactMode} onChange={() => updateSettings({...settings, compactMode: !settings.compactMode})} />
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Default Layers</div><div style={{fontSize:'12px', color:theme.muted}}>Preset for new links</div></div>
+                <select value={settings.defaultLayers} onChange={e => updateSettings({...settings, defaultLayers: Number(e.target.value)})} style={{background:theme.bg, color:theme.text, border:`1px solid ${theme.border}`, padding:'5px', borderRadius:'5px'}}>
+                  <option>1</option><option>2</option><option>3</option><option>4</option>
+                </select>
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
+                <div><div style={{fontWeight:'bold'}}>Default Time Per Layer</div><div style={{fontSize:'12px', color:theme.muted}}>Preset seconds</div></div>
+                <select value={settings.defaultTimePerLayer} onChange={e => updateSettings({...settings, defaultTimePerLayer: Number(e.target.value)})} style={{background:theme.bg, color:theme.text, border:`1px solid ${theme.border}`, padding:'5px', borderRadius:'5px'}}>
+                  <option>10</option><option>20</option><option>30</option><option>45</option><option>60</option>
+                </select>
+              </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                 <div><div style={{fontWeight:'bold', color: theme.error}}>Maintenance Mode</div><div style={{fontSize:'12px', color:theme.muted}}>Disable links</div></div>
                 <input type="checkbox" checked={settings.maintenance} onChange={() => updateSettings({...settings, maintenance: !settings.maintenance})} />
@@ -542,6 +823,17 @@ export default function BXCore() {
         )}
       </div>
       {notify.show && <div style={{position:'fixed', bottom:'30px', right:'30px', background: notify.type === 'error' ? theme.error : theme.primary, color:'#fff', padding:'15px 30px', borderRadius:'12px', fontWeight:'bold', zIndex:1000}}>{notify.msg}</div>}
+      {showShareModal && (
+        <>
+          <div style={styles.overlay} onClick={() => setShowShareModal(false)} />
+          <div style={styles.modal}>
+            <h2>Share Link</h2>
+            <button onClick={() => shareLink('email')}>Email</button>
+            <button onClick={() => shareLink('twitter')}>Twitter</button>
+            <button onClick={() => shareLink('facebook')}>Facebook</button>
+          </div>
+        </>
+      )}
       <style jsx global>{`
         .fade-in { animation: fadeIn 0.5s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
